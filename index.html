@@ -394,6 +394,13 @@ table.data-table tr.total-row td{font-weight:800; border-top:2px solid var(--bas
 @media (max-width:1180px){.quad-row{grid-template-columns:repeat(2,1fr);}}
 @media (max-width:640px){.quad-row{grid-template-columns:1fr;}}
 
+/* Komposisi Biaya Langsung dibuat lebih lebar daripada Hutang Usaha & Pajak (sejajar di satu
+   baris) supaya label keterangan pada legend donut (Material/Upah/Alat/Subkont) tidak terpotong. */
+.biaya-hutang-row{display:grid; grid-template-columns:minmax(360px,1.7fr) minmax(200px,0.9fr); gap:10px; align-items:stretch; margin-bottom:10px;}
+.biaya-hutang-row .stack-col{display:flex; flex-direction:column; min-width:0;}
+.biaya-hutang-row .stack-col > :last-child{flex:1 1 auto; display:flex; flex-direction:column; justify-content:center;}
+@media (max-width:720px){.biaya-hutang-row{grid-template-columns:1fr;}}
+
 .masalah-card{border-left:4px solid var(--warning);}
 .masalah-card p{margin:0; font-size:13px; line-height:1.6; color:var(--text-primary);}
 .masalah-card p.muted{color:var(--text-muted); font-style:italic;}
@@ -600,6 +607,10 @@ footer .meta{display:block; font-size:9px; font-weight:500; font-style:normal; c
 
       <section>
         <div class="section-head"><div class="bar"></div><div><h2>Biaya, Hutang Usaha &amp; Pajak &amp; Likuiditas</h2><p>Komposisi biaya langsung, kewajiban usaha &amp; pajak, posisi kas terhadap kewajiban, serta umur piutang usaha dan tagihan bruto yang belum tertagih.</p></div></div>
+        <div class="biaya-hutang-row">
+          <div class="stack-col" id="biayaLangsungCol"></div>
+          <div class="stack-col" id="hutangUsahaCol"></div>
+        </div>
         <div class="charts-grid" id="chartsGridTop"></div>
       </section>
 
@@ -1765,8 +1776,13 @@ function renderCharts(p, tax){
   // Likuiditas") menggantikan posisi Laporan Laba Rugi yang lama.
   const labaRugiCol = document.getElementById('labaRugiCol'); labaRugiCol.innerHTML='';
   // Baris "Biaya, Hutang Usaha & Pajak & Likuiditas" digabung jadi SATU grid (dulu dua section
-  // terpisah: chartsGridTop & chartsGridMid) — semua 5 kartu masuk ke #chartsGridTop.
+  // terpisah: chartsGridTop & chartsGridMid) — semua kartu sisa (Kas & Bank, Aging Piutang Usaha,
+  // Aging Tagihan Bruto) masuk ke #chartsGridTop. Komposisi Biaya Langsung & Hutang Usaha & Pajak
+  // ditaruh di baris tersendiri (.biaya-hutang-row) dengan rasio lebar 1.7:0.9 supaya label
+  // legend donut (Material/Upah/Alat/Subkont) tidak terpotong seperti sebelumnya.
   const top = document.getElementById('chartsGridTop'); top.innerHTML='';
+  const biayaLangsungCol = document.getElementById('biayaLangsungCol'); biayaLangsungCol.innerHTML='';
+  const hutangUsahaCol = document.getElementById('hutangUsahaCol'); hutangUsahaCol.innerHTML='';
   const bottom = document.getElementById('chartsGridBottom'); bottom.innerHTML='';
   const S = seriesColors();
   const SEQ = seqColors(); // ramp biru monokrom — dipakai khusus untuk donut "bagian dari keseluruhan" (item 1: kurangi warna)
@@ -1803,14 +1819,14 @@ function renderCharts(p, tax){
     { l:'Alat', v:p.biayaAlat },
     { l:'Subkont', v:p.biayaSubkont },
   ].filter(x=>x.v > 0);
-  donutLegendCard(top, 'chartBiaya', 'Komposisi Biaya Langsung',
+  donutLegendCard(biayaLangsungCol, 'chartBiaya', 'Komposisi Biaya Langsung',
     'Sebaran biaya langsung proyek menurut jenisnya: material, upah, alat, dan subkontraktor.',
     biayaPairs, SEQ);
 
   /* 4b. Hutang Usaha & Pajak — stat only, menggantikan posisi Laporan Laba Rugi yang lama
      (ditukar sesuai permintaan: Hutang Usaha & Pajak <-> Laporan Laba Rugi). */
   const totalHutang = p.hutangUsaha + p.hutangPajak;
-  statOnlyCard(top, 'Hutang Usaha &amp; Pajak', headline(totalHutang),
+  statOnlyCard(hutangUsahaCol, 'Hutang Usaha &amp; Pajak', headline(totalHutang),
     `Usaha ${fmtJuta(p.hutangUsaha)} &middot; Pajak ${fmtJuta(p.hutangPajak)}`);
 
   /* 5. Laporan Laba Rugi — Penjualan → BL (Biaya Langsung) → BTL (Biaya Tidak Langsung) → Laba,
