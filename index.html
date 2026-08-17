@@ -1,0 +1,2085 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Evaluasi Proyek JO</title>
+<!-- Font Inter dari Google Fonts. Kalau jaringan memblokir fonts.googleapis.com, browser otomatis
+     jatuh ke fallback system-ui/-apple-system/Segoe UI di CSS (tampilan tetap rapi, tidak error). -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script>
+/* Chart.js dimuat dengan beberapa sumber cadangan (CDN A -> CDN B -> CDN C -> file lokal
+   ./chart.umd.min.js jika Anda taruh sendiri di folder yang sama dengan index.html).
+   Ini penting karena sebagian jaringan kantor/perusahaan hanya mengizinkan domain tertentu
+   (mis. hanya docs.google.com), sehingga satu CDN saja bisa terblokir walau data Google
+   Sheets tetap berhasil terbaca. window.__chartJsReady jadi Promise yang resolve begitu
+   salah satu sumber berhasil, atau resolve(false) kalau semuanya gagal. */
+window.__chartJsReady = new Promise((resolve) => {
+  const sources = [
+    'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js',
+    'https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js',
+    'https://unpkg.com/chart.js@4.4.4/dist/chart.umd.min.js',
+    './chart.umd.min.js'
+  ];
+  let i = 0;
+  function tryNext(){
+    if (i >= sources.length){ resolve(false); return; }
+    const src = sources[i++];
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = () => resolve(typeof Chart !== 'undefined');
+    s.onerror = () => tryNext();
+    document.head.appendChild(s);
+  }
+  tryNext();
+});
+</script>
+<style>
+/* Tema utama: putih dengan aksen gradien biru — dibuat sesuai permintaan agar tampilan
+   dasbor (kartu, ikon, header) tidak terlalu banyak warna. Warna kategori pada grafik
+   (--series-*) tetap dijaga bisa dibedakan satu sama lain (perlu untuk keterbacaan data),
+   tapi kartu komposisi (donut) sengaja dibuat pakai satu keluarga biru (--seq-*) saja.
+   --page memakai gradien berlapis (bukan warna flat) supaya latar terasa lebih "hidup",
+   sementara kartu (--surface-2) tetap terang untuk kontras/keterbacaan konten.
+   Mode gelap tetap tersedia lewat tombol matahari untuk yang mau kontras rendah. */
+:root, [data-theme="light"]{
+  color-scheme: light;
+  /* Gaya "industrial minimalis": grid garis tipis ala kertas blueprint/gambar teknik di atas
+     gradasi abu-baja kebiruan yang lebih netral (bukan lagi biru-pastel/amber yang terlalu manis). */
+  --page:
+    repeating-linear-gradient(0deg, rgba(13,59,102,.055) 0, rgba(13,59,102,.055) 1px, transparent 1px, transparent 46px),
+    repeating-linear-gradient(90deg, rgba(13,59,102,.055) 0, rgba(13,59,102,.055) 1px, transparent 1px, transparent 46px),
+    radial-gradient(1300px 750px at 6% -6%, rgba(26,118,189,.18), transparent 55%) no-repeat,
+    radial-gradient(1000px 650px at 100% 8%, rgba(15,102,153,.10), transparent 55%) no-repeat,
+    linear-gradient(160deg, #eef1f5 0%, #e8ecf1 45%, #dfe4ea 100%) no-repeat;
+  --surface-1:#fbfcfd; --surface-2:#ffffff; --surface-3:#eef3f8;
+  --text-primary:#0d1b2a; --text-secondary:#4d6178; --text-muted:#8598ab;
+  --grid:#e3ebf2; --baseline:#c7d5e2; --border:rgba(13,59,102,0.12);
+  --brand-900:#0a3d68; --brand-800:#0e4d81; --brand-700:#135f9e; --brand-600:#1a76bd; --brand-accent:#4c5b68;
+  --series-1:#1a76bd; --series-2:#e0a11a; --series-3:#0f6699; --series-4:#7db0dd;
+  --series-5:#4d6178; --series-6:#0a3d68; --series-7:#5aa9ff; --series-8:#c7d5e2;
+  --good:#0ca30c; --warning:#e0a11a; --serious:#e07a3f; --critical:#d03b3b;
+  --seq-250:#c7dcf0; --seq-350:#9dc7ec; --seq-450:#6ba9df; --seq-550:#3f8fd1; --seq-650:#1a76bd;
+  --radius:12px;
+  --live-glow:0 0 0 3px rgba(28,163,74,.15);
+}
+[data-theme="dark"]{
+  color-scheme: dark;
+  /* Versi gelap gaya industrial: grid garis tipis serupa, di atas gradasi graphite/navy gelap. */
+  --page:
+    repeating-linear-gradient(0deg, rgba(159,196,232,.045) 0, rgba(159,196,232,.045) 1px, transparent 1px, transparent 46px),
+    repeating-linear-gradient(90deg, rgba(159,196,232,.045) 0, rgba(159,196,232,.045) 1px, transparent 1px, transparent 46px),
+    radial-gradient(1300px 750px at 6% -6%, rgba(90,169,255,.20), transparent 55%) no-repeat,
+    radial-gradient(1000px 650px at 100% 8%, rgba(63,160,255,.10), transparent 55%) no-repeat,
+    linear-gradient(160deg, #0a1220 0%, #0c1a2c 50%, #091220 100%) no-repeat;
+  --surface-1:#0f2138; --surface-2:#132c48; --surface-3:#0d2039;
+  --text-primary:#f3f7fb; --text-secondary:#a9c0d6; --text-muted:#6f88a3;
+  --grid:#22405f; --baseline:#2c4c6c; --border:rgba(159,196,232,0.14);
+  --brand-900:#050d18; --brand-800:#0a1a2e; --brand-700:#0f2745; --brand-600:#15335a; --brand-accent:#9aa8b3;
+  --series-1:#5aa9ff; --series-2:#f2b705; --series-3:#3fa0ff; --series-4:#7db0dd;
+  --series-5:#a9c0d6; --series-6:#1a56a8; --series-7:#9dc7ec; --series-8:#3f5f7d;
+  --good:#2fce6d; --warning:#f2b705; --serious:#ff9a5a; --critical:#ef5b5b;
+  --seq-250:#2a4a6b; --seq-350:#3f6f9e; --seq-450:#5aa9ff; --seq-550:#7fc0ff; --seq-650:#c7dcf0;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--page); color:var(--text-primary);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:inherit;}
+.app{min-height:100vh;display:flex;flex-direction:column;}
+
+/* ---------- Topbar ---------- */
+/* Direstyle jadi terang/putih (bukan gradien navy gelap) sesuai referensi: logo+judul di kiri,
+   dua "pill" info (Periode Laporan, Last Update) dan tombol ikon di kanan. */
+.topbar{
+  background:var(--surface-2); color:var(--text-primary); border-bottom:1px solid var(--border);
+  padding:9px 18px; display:flex; align-items:center; gap:12px;
+  flex-wrap:wrap; position:sticky; top:0; z-index:40; box-shadow:0 1px 2px rgba(15,23,32,.05), 0 1px 10px rgba(15,23,32,.04);
+}
+.brand{display:flex; align-items:center; gap:9px; margin-right:auto;}
+.brand svg{width:24px;height:24px;flex:none; color:var(--brand-accent);}
+.brand-text h1{font-size:13.5px; margin:0; font-weight:800; letter-spacing:.3px; color:var(--text-primary);}
+.brand-text p{font-size:10px; margin:0; color:var(--text-muted);}
+.topbar-actions{display:flex; align-items:center; gap:6px;}
+.icon-btn{
+  width:28px;height:28px;border-radius:8px;border:1px solid var(--border);
+  background:var(--surface-1); color:var(--text-secondary); display:flex; align-items:center; justify-content:center;
+  cursor:pointer; transition:background .15s;
+}
+.icon-btn:hover{background:var(--page);}
+.icon-btn svg{width:14px;height:14px;}
+/* Pill info di topbar (Periode Laporan / Last Update) — dua baris kecil: label + nilai. */
+.topbar-pill{
+  display:flex; flex-direction:column; gap:1px; padding:5px 12px; border-radius:10px;
+  background:var(--surface-1); border:1px solid var(--border); white-space:nowrap;
+}
+.topbar-pill .tp-label{
+  font-size:9px; text-transform:uppercase; letter-spacing:.4px; font-weight:700; color:var(--text-muted);
+  display:flex; align-items:center; gap:4px;
+}
+.topbar-pill .tp-label svg{width:10px;height:10px;flex:none;}
+.topbar-pill .tp-value{font-size:11.5px; font-weight:700; color:var(--text-primary);}
+
+/* ---------- Toolbar ---------- */
+.toolbar{
+  background:var(--surface-2); border-bottom:1px solid var(--border);
+  padding:7px 18px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+  position:sticky; top:46px; z-index:30;
+}
+.field{display:flex; flex-direction:column; gap:3px;}
+.field label{font-size:10.5px; text-transform:uppercase; letter-spacing:.5px; color:var(--text-muted); font-weight:600;}
+select, input[type="text"], input[type="month"], input[type="search"]{
+  font:inherit; font-size:12.5px; padding:5px 9px; border-radius:7px; border:1px solid var(--border);
+  background:var(--surface-1); color:var(--text-primary); min-width:130px;
+}
+select:focus, input:focus{outline:2px solid var(--brand-accent); outline-offset:1px;}
+/* Kolom pilihan Proyek dibuat pendek/minimalis: lebar dasar lebih kecil (bukan flex-grow penuh) */
+.field.grow{flex:0 1 220px;}
+.combobox{position:relative; display:flex;}
+.combobox input{flex:1; min-width:0; border-radius:7px 0 0 7px; border-right:none;}
+.combo-toggle{
+  border:1px solid var(--border); border-radius:0 7px 7px 0; background:var(--surface-1); color:var(--text-muted);
+  width:24px; cursor:pointer; font-size:10.5px;
+}
+.combo-toggle:hover{background:var(--page);}
+.combo-panel{
+  position:absolute; top:calc(100% + 4px); left:0; right:0; max-height:280px; overflow-y:auto; z-index:50;
+  background:var(--surface-2); border:1px solid var(--border); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.18);
+  padding:4px;
+}
+.combo-empty{padding:10px; font-size:12.5px; color:var(--text-muted); text-align:center;}
+.combo-item{
+  padding:7px 10px; border-radius:6px; cursor:pointer; font-size:13px; display:flex; justify-content:space-between; gap:10px;
+}
+.combo-item:hover, .combo-item.active{background:var(--page);}
+.combo-item .nm{color:var(--text-primary); font-weight:600;}
+.combo-item .cd{color:var(--text-muted); font-size:11.5px; white-space:nowrap;}
+.status-pill{
+  font-size:11.5px; padding:5px 10px; border-radius:999px; display:inline-flex; align-items:center; gap:6px;
+  background:var(--surface-1); border:1px solid var(--border); color:var(--text-secondary); white-space:nowrap;
+}
+.dot{width:7px;height:7px;border-radius:50%; background:var(--text-muted);}
+.dot.ok{background:var(--good);}
+.dot.err{background:var(--critical);}
+.dot.loading{background:var(--warning); animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+.spacer{flex:1;}
+
+/* ---------- Main / states ---------- */
+/* max-width dilebarkan mendekati layar 1920x1080 (bukan 1440px lagi) supaya kartu-kartu bisa
+   memakai lebar layar penuh dan tidak perlu menumpuk terlalu banyak baris ke bawah — ini bagian
+   utama membuat dashboard lebih ringkas secara vertikal di resolusi Full HD. */
+main{flex:1; padding:10px 22px 20px; max-width:1860px; margin:0 auto; width:100%;}
+.state-card{
+  background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius);
+  padding:40px 24px; text-align:center; color:var(--text-secondary); max-width:560px; margin:40px auto;
+}
+.state-card h2{color:var(--text-primary); font-size:16px; margin:10px 0 6px;}
+.state-card p{font-size:13px; line-height:1.6;}
+.state-card p#errorDetail{white-space:pre-line; text-align:left;}
+.chartlib-warning{
+  background:color-mix(in srgb, var(--status-warning, #b5820a) 12%, var(--surface-2));
+  border:1px solid var(--status-warning, #b5820a); color:var(--text-primary);
+  border-radius:var(--radius); padding:10px 14px; font-size:12.5px; line-height:1.6; margin-bottom:14px;
+}
+.chartlib-warning code{background:rgba(0,0,0,.08); padding:1px 5px; border-radius:4px; font-size:11.5px;}
+.spinner{width:34px;height:34px;border-radius:50%;border:3px solid var(--grid); border-top-color:var(--brand-accent); margin:0 auto 14px; animation:spin 0.8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.btn{
+  font:inherit; font-size:13px; font-weight:600; padding:8px 16px; border-radius:8px; border:none;
+  background:var(--brand-accent); color:#fff; cursor:pointer;
+}
+.btn.ghost{background:transparent; border:1px solid var(--border); color:var(--text-primary);}
+.btn:hover{filter:brightness(1.08);}
+
+/* ---------- Cards / grid ---------- */
+section{margin-bottom:8px;}
+.card{
+  background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius);
+  padding:9px 11px; box-shadow:0 1px 2px rgba(15,23,32,.05), 0 1px 8px rgba(15,23,32,.04);
+}
+.card h3{margin:0 0 5px; font-size:10.5px; text-transform:uppercase; letter-spacing:.4px; color:var(--text-secondary); font-weight:700;}
+
+/* section headers with description (title + one-line subtitle), accented like a project/blueprint tab */
+.section-head{display:flex; align-items:flex-start; gap:8px; margin:2px 0 9px;}
+.section-head .bar{width:3px; align-self:stretch; min-height:18px; border-radius:3px; background:var(--brand-accent); flex:none;}
+.section-head h2{margin:0; font-size:12.5px; font-weight:800; color:var(--text-primary); letter-spacing:-.1px;}
+.section-head p{margin:1px 0 0; font-size:10px; color:var(--text-muted); line-height:1.4;}
+
+/* hero */
+.hero{
+  background:linear-gradient(135deg,var(--brand-900),var(--brand-700));
+  background-size:cover; background-position:center; transition:background-image .2s;
+  color:#fff; border-radius:var(--radius); padding:12px 16px; position:relative; overflow:hidden;
+  box-shadow:0 6px 22px rgba(0,0,0,.35), inset 0 0 0 1px rgba(159,196,232,.12);
+}
+.hero::after{content:"";position:absolute;inset:0;background:url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"120\" height=\"120\"><path d=\"M0 100 L20 60 L40 100 M50 100 L70 40 L90 100 M95 100 L110 70 L120 100\" stroke=\"white\" stroke-opacity=\"0.05\" stroke-width=\"3\" fill=\"none\"/></svg>') repeat-x bottom; opacity:.5; pointer-events:none;}
+.hero.has-photo::after{opacity:.25;}
+.hero-toprow{position:relative; z-index:2; display:flex; align-items:center; justify-content:flex-end; gap:8px; margin-bottom:10px;}
+.hero-livepill{
+  display:inline-flex; align-items:center; gap:6px; white-space:nowrap;
+  font-size:10.5px; font-weight:700; letter-spacing:.3px; padding:5px 11px 5px 9px; border-radius:999px;
+  background:rgba(5,13,24,.55); border:1px solid rgba(159,196,232,.28); backdrop-filter:blur(3px); color:#dfeaf5;
+}
+.dot-live{width:7px;height:7px;border-radius:50%; background:var(--good); box-shadow:var(--live-glow); animation:pulse 1.4s infinite; flex:none;}
+.hero-top{display:flex; flex-wrap:wrap; gap:12px 22px; align-items:flex-start; position:relative;}
+/* Kolom khusus unggah foto proyek — kotak thumbnail yang jelas terlihat (bukan hanya ikon
+   kecil), dengan area drop/klik dan placeholder "Upload Foto" saat belum ada foto. */
+.hero-photobox{
+  width:104px;height:104px;border-radius:12px;flex:none;position:relative;overflow:hidden;
+  border:1.5px dashed rgba(255,255,255,.42); background:rgba(255,255,255,.07);
+  display:flex; align-items:center; justify-content:center; cursor:pointer; transition:border-color .15s,background .15s;
+}
+.hero-photobox:hover{border-color:rgba(255,255,255,.7); background:rgba(255,255,255,.12);}
+.hero-photobox.has-thumb{border-style:solid; border-color:rgba(255,255,255,.3);}
+.hero-photobox.is-locked{cursor:default;}
+.hero-photobox.is-locked:hover{border-color:rgba(255,255,255,.3); background:rgba(255,255,255,.07);}
+.hero-photobox img{width:100%;height:100%;object-fit:cover;display:block;}
+.hero-photobox .ph-empty{display:flex; flex-direction:column; align-items:center; gap:4px; color:#dfeaf5; padding:0 4px; text-align:center;}
+.hero-photobox .ph-empty svg{width:24px;height:24px;}
+.hero-photobox .ph-empty span{font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.25px; line-height:1.2;}
+.hero-photobox .ph-remove{
+  position:absolute; top:3px; right:3px; width:19px;height:19px; border-radius:50%;
+  background:rgba(5,13,24,.75); color:#fff; display:flex; align-items:center; justify-content:center;
+  font-size:11px; font-weight:700; cursor:pointer; line-height:1;
+}
+.hero-title{min-width:180px;}
+.hero-title .kicker{font-size:10.5px; text-transform:uppercase; letter-spacing:1.2px; color:var(--brand-accent); font-weight:800;}
+.hero-title h2{margin:3px 0 0; font-size:22px; font-weight:800; letter-spacing:-.2px;}
+.hero-title .code{font-size:11px; color:#b9cfdf; margin-top:2px;}
+.hero-badges{display:flex; flex-wrap:wrap; gap:6px; align-items:center;}
+.badge{
+  font-size:10px; font-weight:700; padding:3px 8px; border-radius:999px; background:rgba(255,255,255,.12);
+  border:1px solid rgba(255,255,255,.2); display:inline-flex; align-items:center; gap:5px; white-space:nowrap;
+}
+.badge.good{background:rgba(12,163,12,.22); border-color:rgba(12,163,12,.4);}
+.badge.warning{background:rgba(250,178,25,.22); border-color:rgba(250,178,25,.45); color:#ffe9bd;}
+.badge.critical{background:rgba(208,59,59,.25); border-color:rgba(208,59,59,.5);}
+.hero-meter{min-width:140px;}
+.hero-meter .meter-label{font-size:10px; color:#b9cfdf; display:flex; justify-content:space-between; margin-bottom:4px;}
+.meter-track{height:8px; border-radius:999px; background:rgba(255,255,255,.18); overflow:hidden;}
+.meter-fill{height:100%; border-radius:999px; background:linear-gradient(90deg,var(--brand-accent),#ffd27a);}
+.meter-fill.amber{background:linear-gradient(90deg,#c9860f,#ffce6b);}
+/* Progress proyek ditampilkan sebagai angka persentase besar + bar gradien amber, menyatu di
+   dalam baris atas hero (sejajar foto/judul/badge) — meniru referensi "PROGRESS PROYEK 100%". */
+.hero-progress-block{min-width:150px; display:flex; flex-direction:column; gap:5px; margin-left:auto; align-self:center;}
+.hero-progress-block .hpb-pct{font-size:28px; font-weight:800; line-height:1; letter-spacing:-.5px;}
+.hero-progress-block .hpb-label{font-size:9px; letter-spacing:.5px; color:#dfeaf5; text-transform:uppercase; font-weight:700;}
+.hero-progress-block .meter-track{width:150px;}
+/* Tombol "Lihat data mentah" digaya ulang jadi pill terisi (bukan teks tautan biasa), sesuai
+   referensi "LIHAT >". */
+.hero-viewbtn{
+  display:inline-flex; align-items:center; gap:4px; font:inherit; font-size:10px; font-weight:800;
+  letter-spacing:.4px; text-transform:uppercase; padding:6px 12px; border-radius:999px;
+  background:var(--brand-accent); color:#fff; border:none; cursor:pointer; white-space:nowrap;
+}
+.hero-viewbtn:hover{filter:brightness(1.1);}
+/* "Ringkasan proyek" dipaksa selalu SATU BARIS: pakai flex nowrap + scroll horizontal sebagai
+   jaring pengaman di layar yang lebih sempit dari 1920px, bukan grid auto-fit yang bisa membungkus
+   ke baris kedua. */
+.hero-grid{
+  display:flex; flex-wrap:nowrap; gap:16px; overflow-x:auto;
+  margin-top:10px; position:relative; padding-top:8px; padding-bottom:2px; border-top:1px solid rgba(255,255,255,.15);
+  scrollbar-width:thin;
+}
+.hero-grid::-webkit-scrollbar{height:4px;}
+.hero-grid::-webkit-scrollbar-thumb{background:rgba(255,255,255,.28); border-radius:4px;}
+.hero-item{flex:0 0 auto; white-space:nowrap;}
+.hero-item .k{font-size:9px; text-transform:uppercase; letter-spacing:.4px; color:#9fc0d8; margin-bottom:1px; white-space:nowrap;}
+.hero-item .v{font-size:11.5px; font-weight:700; white-space:nowrap;}
+.hero-item .v small{font-weight:500; color:#c9d8e4; font-size:9.5px; white-space:nowrap;}
+
+/* KPI tiles — dipaksa SATU BARIS (flex nowrap, bukan grid auto-fit yang bisa membungkus ke
+   baris kedua); scroll horizontal tipis jadi jaring pengaman di layar yang sangat sempit. */
+.kpi-grid{display:flex; flex-wrap:nowrap; gap:8px; overflow-x:auto; scrollbar-width:thin;}
+.kpi-grid::-webkit-scrollbar{height:4px;}
+.kpi-grid::-webkit-scrollbar-thumb{background:var(--border); border-radius:4px;}
+.kpi-tile{
+  background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius); padding:8px 10px 7px;
+  display:flex; flex-direction:column; gap:3px; box-shadow:0 1px 2px rgba(0,0,0,.18), 0 3px 12px rgba(0,0,0,.14);
+  flex:1 1 0; min-width:128px;
+}
+.kpi-tile .icon{
+  width:24px;height:24px;border-radius:50%; display:flex; align-items:center; justify-content:center;
+  background:var(--tile-accent, var(--series-1)); margin-bottom:1px;
+  box-shadow:0 3px 10px color-mix(in srgb, var(--tile-accent, var(--series-1)) 55%, transparent);
+}
+.kpi-tile .icon svg{width:13px;height:13px; stroke:#fff;}
+.kpi-tile .label{font-size:9.5px; color:var(--text-muted); font-weight:700; text-transform:uppercase; letter-spacing:.3px;}
+.kpi-tile .value{font-size:15px; font-weight:800; letter-spacing:-.2px;}
+.kpi-tile .sub{font-size:9.5px; color:var(--text-secondary); display:flex; gap:6px; flex-wrap:wrap;}
+
+/* charts grid */
+.charts-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px;}
+.charts-grid.wide{grid-template-columns:repeat(auto-fit,minmax(300px,1fr));}
+/* Baris gabungan "Biaya, Laporan Laba Rugi & Likuiditas" berisi 5 kartu (donut Komposisi Biaya,
+   Laporan Laba Rugi, Kas & Bank vs Hutang & BAD, Aging Piutang Usaha, Aging Tagihan Bruto) — kartu
+   donut/laba-rugi dibuat sedikit lebih lebar lewat minmax pada .charts-grid di atas (auto-fit),
+   cukup rapi tanpa perlu kolom tetap khusus lagi karena sekarang berisi 5 kartu, bukan 2. */
+.chart-card{
+  background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius); padding:9px 11px 5px; display:flex; flex-direction:column;
+  box-shadow:0 1px 2px rgba(15,23,32,.05), 0 1px 8px rgba(15,23,32,.04);
+}
+.chart-card-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:1px;}
+.chart-card-head h3{margin:0; font-size:10.5px; letter-spacing:.1px; color:var(--text-primary); font-weight:700;}
+.chart-card-head .total{font-size:9.5px; color:var(--text-muted);}
+.chart-card-sub{font-size:9.5px; color:var(--text-muted); margin:-2px 0 5px; line-height:1.35;}
+.chart-headline{font-size:16px; font-weight:800; letter-spacing:-.3px; margin:1px 0 5px; color:var(--text-primary);}
+.chart-headline .unit{font-size:9.5px; font-weight:600; color:var(--text-muted); margin-left:5px;}
+.chart-headline .sub{font-size:10px; font-weight:600; color:var(--text-secondary); margin-left:8px;}
+.ghost-link{font-size:10px; color:var(--brand-accent); background:none; border:none; cursor:pointer; font-weight:600; padding:2px 4px;}
+.chart-canvas-wrap{position:relative; height:98px;}
+.chart-canvas-wrap.short{height:78px;}
+.stat-only-card{display:flex; flex-direction:column; justify-content:center; min-height:68px;}
+.chart-table{margin-top:8px; font-size:12px;}
+.chart-table table{width:100%; border-collapse:collapse;}
+.chart-table th, .chart-table td{padding:5px 6px; text-align:right; border-bottom:1px solid var(--grid); font-variant-numeric:tabular-nums;}
+.chart-table th:first-child, .chart-table td:first-child{text-align:left;}
+.empty-note{color:var(--text-muted); font-size:12px; text-align:center; padding:30px 0;}
+
+/* donut + side legend (komposisi cards) */
+.donut-layout{display:flex; gap:14px; align-items:center; padding-bottom:4px;}
+.donut-canvas-wrap{position:relative; width:96px; height:96px; flex:none;}
+.donut-center{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; pointer-events:none; padding:0 8px;}
+.donut-center-val{font-size:11.5px; font-weight:800; color:var(--text-primary); line-height:1.15; letter-spacing:-.2px;}
+.donut-legend{list-style:none; margin:0; padding:0; flex:1; min-width:0; display:flex; flex-direction:column; gap:5px;}
+.donut-legend li{display:flex; align-items:center; gap:6px; font-size:11.5px;}
+.donut-legend .dot{width:8px; height:8px; border-radius:50%; flex:none;}
+.donut-legend .nm{flex:1; min-width:0; color:var(--text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.donut-legend .val{color:var(--text-primary); font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap;}
+.donut-legend .pct{color:var(--text-muted); font-size:10px; min-width:30px; text-align:right;}
+.donut-canvas-wrap .empty-note{padding:6px 2px; font-size:10px; line-height:1.35;}
+@media (max-width:520px){.donut-layout{flex-direction:column; align-items:stretch;}.donut-canvas-wrap{width:100%;height:150px;margin:0 auto;}}
+/* Kartu donut (Investasi Ventura Bersama, Komposisi Biaya Langsung): ukuran chart dibesarkan
+   lagi supaya kelihatan jelas, tapi lebar KARTU-nya sendiri diatur ukuran "medium" lewat
+   grid-template-columns pada kontainernya masing-masing (lihat #chartsGridTop di bawah),
+   bukan dengan melebarkan sampai 2 kolom penuh seperti versi sebelumnya. */
+
+/* tables */
+table.data-table{width:100%; border-collapse:collapse; font-size:11px;}
+table.data-table th{
+  text-align:right; font-size:9.5px; text-transform:uppercase; letter-spacing:.3px; color:var(--text-muted);
+  padding:4px 6px; border-bottom:2px solid var(--baseline); font-weight:700;
+}
+table.data-table th:first-child, table.data-table td:first-child{text-align:left;}
+table.data-table td{padding:4px 6px; border-bottom:1px solid var(--grid); font-variant-numeric:tabular-nums; text-align:right;}
+table.data-table tr.total-row td{font-weight:800; border-top:2px solid var(--baseline); border-bottom:none;}
+.table-scroll{overflow-x:auto;}
+
+/* Rencana Cash In & RKAP: kartu dibuat ringkas/minimalis. align-items:start supaya kartu RKAP
+   (isinya pendek) TIDAK ikut diregangkan setinggi kartu tabel Cash In di sebelahnya — itu
+   sumber utama "ruang kosong besar" yang dikeluhkan sebelumnya. */
+/* align-items:stretch (default) supaya kedua kolom presisi sama tinggi; kartu TERAKHIR di
+   masing-masing kolom (RKAP di kiri, Utang Ventura di kanan) diberi flex:1 supaya ia yang
+   menyerap sisa tinggi — hasilnya tidak ada lagi area kosong menggantung di bawah kolom. */
+.two-col{display:grid; grid-template-columns:1.4fr .6fr; gap:10px;}
+.two-col .card{padding:9px 12px;}
+.two-col .stack-col{display:flex; flex-direction:column; gap:10px;}
+.two-col .stack-col > :last-child{flex:1 1 auto; display:flex; flex-direction:column; justify-content:center;}
+@media (max-width:900px){.two-col{grid-template-columns:1fr;}}
+
+/* Baris "Hutang Usaha & Pajak + Rencana Cash In & Posisi Ventura Bersama": 4 kolom sejajar
+   dalam SATU baris sesuai referensi (kartu Hutang sempit di kiri, lalu Cash In, Investasi
+   Ventura, dan Piutang Ventura melebar ke kanan). */
+.quad-row{display:grid; grid-template-columns:minmax(260px,1.3fr) minmax(220px,1fr) minmax(200px,1fr) minmax(200px,1fr); gap:10px; align-items:stretch;}
+.quad-row .stack-col{display:flex; flex-direction:column; gap:10px; min-width:0;}
+.quad-row .stack-col > :last-child{flex:1 1 auto; display:flex; flex-direction:column; justify-content:center;}
+.quad-row .card{padding:9px 12px;}
+.quad-row .kpi-tile{height:100%; justify-content:center;}
+@media (max-width:1180px){.quad-row{grid-template-columns:repeat(2,1fr);}}
+@media (max-width:640px){.quad-row{grid-template-columns:1fr;}}
+
+.masalah-card{border-left:4px solid var(--warning);}
+.masalah-card p{margin:0; font-size:13px; line-height:1.6; color:var(--text-primary);}
+.masalah-card p.muted{color:var(--text-muted); font-style:italic;}
+/* Catatan masalah potensial kini bisa ditulis/diedit langsung di dashboard (tersimpan di
+   browser/perangkat ini, mirip mekanisme unggah foto lokal — lihat masalahStorageKey). */
+.masalah-card textarea{
+  width:100%; min-height:64px; resize:vertical; font:inherit; font-size:13px; line-height:1.55;
+  padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:var(--surface-1);
+  color:var(--text-primary);
+}
+.masalah-card textarea:focus{outline:2px solid var(--brand-accent); outline-offset:1px;}
+.masalah-actions{display:flex; align-items:center; gap:10px; margin-top:7px; flex-wrap:wrap;}
+.masalah-status{font-size:10.5px; color:var(--text-muted);}
+.masalah-status.saved{color:var(--good); font-weight:600;}
+.masalah-status.error{color:var(--critical); font-weight:600;}
+
+.rkap-row{display:flex; gap:14px; flex-wrap:wrap; align-items:center;}
+.rkap-stat{min-width:78px;}
+.rkap-stat .k{font-size:9.5px; text-transform:uppercase; color:var(--text-muted); font-weight:700;}
+.rkap-stat .v{font-size:15px; font-weight:800;}
+.rkap-stat.rkap-ring{display:flex; align-items:center; gap:7px; min-width:auto;}
+.rkap-stat.rkap-ring .k{margin-bottom:0;}
+
+/* Ring gauge (SVG) — dipakai untuk metrik rasio 0-100% seperti % Capaian RKAP, % PPN thd Biaya */
+.ring-gauge .ring-bg{fill:none; stroke:var(--grid); stroke-width:3.2;}
+.ring-gauge .ring-fg{fill:none; stroke-width:3.2; stroke-linecap:round; transition:stroke-dasharray .3s ease;}
+.ring-gauge .ring-text{fill:var(--text-primary); font-size:8.6px; font-weight:800; text-anchor:middle; font-family:inherit;}
+
+/* panel / modal */
+.overlay{position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:80; display:flex; align-items:flex-start; justify-content:flex-end;}
+.overlay[hidden]{display:none;}
+.panel{
+  width:min(420px,100vw); height:100%; background:var(--surface-2); box-shadow:-8px 0 24px rgba(0,0,0,.25);
+  padding:20px; overflow-y:auto;
+}
+.panel h2{margin:0 0 4px; font-size:15px;}
+.panel p.hint{font-size:12px; color:var(--text-muted); margin:0 0 16px;}
+.panel .field{margin-bottom:12px; width:100%;}
+.panel .field input, .panel .field select{width:100%;}
+.panel fieldset{border:1px solid var(--border); border-radius:10px; padding:12px; margin:0 0 12px;}
+.panel legend{font-size:11.5px; font-weight:700; color:var(--text-secondary); padding:0 4px;}
+.panel-actions{display:flex; gap:8px; margin-top:16px; position:sticky; bottom:0; background:var(--surface-2); padding-top:10px;}
+.close-x{position:absolute; top:16px; right:16px;}
+.test-result{font-size:12px; margin-top:8px; padding:8px 10px; border-radius:8px; background:var(--surface-1); border:1px solid var(--border); white-space:pre-line;}
+
+.modal-box{background:var(--surface-2); border-radius:var(--radius); max-width:640px; width:92vw; max-height:82vh; overflow:auto; padding:20px; margin:6vh auto;}
+
+footer{
+  text-align:center; font-size:10.5px; font-weight:700; letter-spacing:.3px; color:#eaf3fb;
+  padding:8px 18px; background:linear-gradient(120deg,var(--brand-900),var(--brand-700),var(--brand-900));
+  font-style:italic;
+}
+footer .meta{display:block; font-size:9px; font-weight:500; font-style:normal; color:#a9c0d6; margin-top:2px; letter-spacing:.4px;}
+.legend-row{display:flex; gap:14px; flex-wrap:wrap; font-size:11px; color:var(--text-secondary); margin-top:6px;}
+.legend-row .sw{width:9px;height:9px;border-radius:2px; display:inline-block; margin-right:5px;}
+
+/* Ikon crane dekoratif di pojok kanan bawah — flourish visual bertema konstruksi, tidak
+   mengganggu interaksi (pointer-events:none) dan disembunyikan di layar sempit. */
+.crane-decor{
+  position:fixed; right:8px; bottom:4px; width:110px; height:110px; color:var(--brand-accent);
+  opacity:.07; pointer-events:none; z-index:1;
+}
+[data-theme="dark"] .crane-decor{opacity:.10;}
+@media (max-width:900px){.crane-decor{display:none;}}
+
+/* ---------- Access gate ---------- */
+#accessGateOverlay{
+  position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center;
+  background:var(--page); padding:20px;
+}
+.gate-card{
+  width:100%; max-width:360px; background:var(--surface-2); border:1px solid var(--border);
+  border-radius:var(--radius); box-shadow:0 12px 34px rgba(10,30,50,.14); padding:28px 26px; text-align:center;
+}
+.gate-card svg{width:32px;height:32px;color:var(--brand-accent);margin-bottom:10px;}
+.gate-card h2{font-size:15px; margin:0 0 4px; color:var(--text-primary); font-weight:800;}
+.gate-card p{font-size:11.5px; color:var(--text-muted); margin:0 0 18px;}
+.gate-card input{
+  width:100%; box-sizing:border-box; padding:10px 12px; border-radius:9px; border:1px solid var(--border);
+  background:var(--surface-1); color:var(--text-primary); font-size:13px; margin-bottom:10px; text-align:center;
+}
+.gate-card input:focus{outline:2px solid var(--brand-600); outline-offset:1px;}
+.gate-card button{
+  width:100%; padding:10px 12px; border-radius:9px; border:none; background:var(--brand-accent); color:#fff;
+  font-size:12.5px; font-weight:700; cursor:pointer;
+}
+.gate-card button:hover{filter:brightness(1.08);}
+.gate-card .gate-error{font-size:11px; color:#c0392b; margin-top:10px; min-height:14px;}
+.gate-card .gate-remember{display:flex; align-items:center; gap:6px; justify-content:center; font-size:10.5px; color:var(--text-muted); margin-bottom:14px;}
+</style>
+</head>
+<body>
+
+<div id="accessGateOverlay">
+  <div class="gate-card">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+    <h2>Dashboard Evaluasi Proyek JO</h2>
+    <p>Halaman ini khusus internal. Masukkan kata sandi akses untuk melanjutkan.</p>
+    <input type="password" id="gatePasswordInput" placeholder="Kata sandi akses" autocomplete="off">
+    <label class="gate-remember"><input type="checkbox" id="gateRememberChk" style="width:auto;margin:0;" checked> Ingat perangkat ini</label>
+    <button id="gateSubmitBtn">Masuk</button>
+    <div class="gate-error" id="gateError"></div>
+  </div>
+</div>
+
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 21h16"/><path d="M6 21V10l6-4 6 4v11"/><path d="M10 21v-6h4v6"/><path d="M9 10h.01"/><path d="M15 10h.01"/><path d="M9 14h.01"/><path d="M15 14h.01"/>
+      </svg>
+      <div class="brand-text">
+        <h1>Dashboard Evaluasi Proyek JO</h1>
+        <p>Evaluasi kinerja keuangan proyek Joint Operation</p>
+      </div>
+    </div>
+    <div class="topbar-pill" id="periodPill">
+      <span class="tp-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>Periode Laporan</span>
+      <span class="tp-value" id="periodLabel">Memuat…</span>
+    </div>
+    <div class="topbar-pill" id="lastUpdatePill">
+      <span class="tp-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>Last Update</span>
+      <span class="tp-value" id="lastUpdateLabel">-</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="icon-btn" id="refreshBtn" title="Muat ulang data">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+      </button>
+      <button class="icon-btn" id="downloadBtn" title="Unduh data mentah proyek (CSV)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
+      </button>
+      <button class="icon-btn" id="expandBtn" title="Layar penuh">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M21 16v3a2 2 0 0 1-2 2h-3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/></svg>
+      </button>
+      <button class="icon-btn" id="themeToggle" title="Ganti tema terang/gelap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      </button>
+      <button class="icon-btn" id="settingsBtn" title="Pengaturan sumber data">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <div class="field">
+      <label for="divisiSelect">Divisi</label>
+      <select id="divisiSelect"><option value="">Semua Divisi</option></select>
+    </div>
+    <div class="field grow">
+      <label for="proyekInput">Proyek</label>
+      <div class="combobox" id="proyekComboWrap">
+        <input type="text" id="proyekInput" placeholder="Cari atau pilih proyek…" autocomplete="off">
+        <button type="button" class="combo-toggle" id="proyekToggle" aria-label="Buka daftar proyek">▾</button>
+        <div class="combo-panel" id="proyekPanel" hidden></div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <span class="status-pill" id="statusPill"><span class="dot loading" id="statusDot"></span><span id="statusText">Memuat data…</span></span>
+  </div>
+
+  <main>
+    <div id="loadingState" class="state-card">
+      <div class="spinner"></div>
+      <h2>Mengambil data dari Google Sheets…</h2>
+      <p>Menghubungi spreadsheet dan membaca data proyek dari setiap divisi.</p>
+    </div>
+
+    <div id="errorState" class="state-card" hidden>
+      <h2>Data belum bisa dimuat</h2>
+      <p id="errorDetail"></p>
+      <p style="margin-top:14px;">
+        <button class="btn" id="retryBtn">Coba Lagi</button>
+        <button class="btn ghost" id="openSettingsFromError">Buka Pengaturan</button>
+      </p>
+    </div>
+
+    <div id="emptyState" class="state-card" hidden>
+      <h2>Belum ada proyek dipilih</h2>
+      <p>Pilih divisi dan proyek pada bagian atas untuk menampilkan dashboard evaluasi.</p>
+    </div>
+
+    <div id="dashboard" hidden>
+
+      <section class="hero" id="heroCard"></section>
+
+      <section>
+        <div class="section-head"><div class="bar"></div><div><h2>Ringkasan Keuangan Proyek</h2><p>Posisi kas, persediaan, piutang, tagihan, dan kewajiban proyek pada periode laporan.</p></div></div>
+        <div class="kpi-grid" id="kpiGrid"></div>
+      </section>
+
+      <section>
+        <div class="section-head"><div class="bar"></div><div><h2>Rencana Cash In, Laporan Laba Rugi &amp; Posisi Ventura Bersama</h2><p>Proyeksi Cash In 3 bulan &amp; RKAP 2026, alur laporan laba rugi, serta posisi Ventura Bersama — sejajar dalam satu baris.</p></div></div>
+        <div class="quad-row">
+          <div class="stack-col">
+            <div class="card" id="cashinCard"><h3>Rencana Cash In (Rp Juta)</h3><div class="table-scroll" id="cashinTableWrap"></div></div>
+            <div class="card" id="rkapCard"><h3>Rencana Cash In di RKAP 2026</h3><div id="rkapBody"></div></div>
+          </div>
+          <div class="stack-col" id="labaRugiCol"></div>
+          <div class="stack-col" id="venturaInvestCol"></div>
+          <div class="stack-col" id="venturaPiutangCol"></div>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-head"><div class="bar"></div><div><h2>Biaya, Hutang Usaha &amp; Pajak &amp; Likuiditas</h2><p>Komposisi biaya langsung, kewajiban usaha &amp; pajak, posisi kas terhadap kewajiban, serta umur piutang usaha dan tagihan bruto yang belum tertagih.</p></div></div>
+        <div class="charts-grid" id="chartsGridTop"></div>
+      </section>
+
+      <section>
+        <div class="section-head"><div class="bar"></div><div><h2>Monitoring &amp; Restitusi PPN, Masalah Potensial</h2><p>Nilai PPN masukan per tahun, tahapan proses restitusinya, serta catatan kendala/isu proyek yang perlu perhatian.</p></div></div>
+        <div class="charts-grid wide">
+          <div id="chartsGridBottom" style="display:contents"></div>
+          <div class="card masalah-card" id="masalahCard"><h3>Masalah Potensial</h3><p class="chart-card-sub" style="margin-top:-4px">Catatan kendala/isu proyek yang perlu perhatian.</p><div id="masalahBody"></div></div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+  <svg class="crane-decor" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M20 94 L20 16 L74 16"/>
+    <path d="M20 16 L8 28"/>
+    <path d="M74 16 L74 30"/>
+    <path d="M74 16 L84 32"/>
+    <path d="M14 94 L26 94"/>
+    <path d="M6 94 L34 94"/>
+    <path d="M20 40 L28 40"/>
+    <path d="M20 60 L28 60"/>
+  </svg>
+
+  <footer>&ldquo;Sinergi Joint Operation, Membangun Kualitas &amp; Kepercayaan.&rdquo;
+    <span class="meta">DASHBOARD EVALUASI PROYEK JO &middot; DATA LANGSUNG DARI GOOGLE SHEETS</span>
+  </footer>
+</div>
+
+<!-- Settings panel -->
+<div class="overlay" id="settingsOverlay" hidden>
+  <div class="panel" role="dialog" aria-label="Pengaturan sumber data">
+    <h2>Pengaturan Sumber Data</h2>
+    <p class="hint">Perubahan di sini berlaku untuk sesi ini saja. Untuk permanen, ubah nilai <code>CONFIG</code> di bagian atas file index.html.</p>
+
+    <div class="field">
+      <label for="cfgSpreadsheetId">Spreadsheet ID</label>
+      <input type="text" id="cfgSpreadsheetId" placeholder="ID dari URL Google Sheet Anda">
+    </div>
+    <div class="field">
+      <label for="cfgReportMonth">Periode Laporan</label>
+      <input type="month" id="cfgReportMonth">
+    </div>
+    <div class="field">
+      <label for="cfgDataStartRow">Baris Awal Data Proyek</label>
+      <input type="text" inputmode="numeric" id="cfgDataStartRow" placeholder="12">
+    </div>
+
+    <fieldset>
+      <legend>Divisi EPCC</legend>
+      <div class="field"><label>Nama Sheet Data Proyek</label><input type="text" id="cfgEpccMaster"></div>
+      <div class="field"><label>Nama Sheet Pajak/PPN</label><input type="text" id="cfgEpccTax"></div>
+    </fieldset>
+    <fieldset>
+      <legend>Divisi Infra</legend>
+      <div class="field"><label>Nama Sheet Data Proyek</label><input type="text" id="cfgInfraMaster"></div>
+      <div class="field"><label>Nama Sheet Pajak/PPN</label><input type="text" id="cfgInfraTax"></div>
+    </fieldset>
+    <fieldset>
+      <legend>Divisi Building</legend>
+      <div class="field"><label>Nama Sheet Data Proyek</label><input type="text" id="cfgBuildingMaster"></div>
+      <div class="field"><label>Nama Sheet Pajak/PPN</label><input type="text" id="cfgBuildingTax"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Simpan Catatan Masalah Potensial ke Google Sheet (opsional)</legend>
+      <p class="hint" style="margin:0 0 10px;">Kosongkan kalau catatan cukup tersimpan di browser/perangkat ini saja (default). Isi URL Web App di bawah supaya tombol "Simpan Catatan" ikut menulis balik ke Google Sheet — lihat README bagian "Simpan Catatan ke Google Sheet" untuk cara membuatnya.</p>
+      <div class="field"><label>URL Web App (Apps Script)</label><input type="text" id="cfgAppsScriptUrl" placeholder="https://script.google.com/macros/s/…/exec"></div>
+      <div class="field"><label>Token Rahasia (opsional)</label><input type="text" id="cfgAppsScriptSecret" placeholder="samakan dengan SCRIPT_SECRET di Apps Script"></div>
+    </fieldset>
+
+    <div class="panel-actions">
+      <button class="btn" id="applySettingsBtn">Terapkan &amp; Muat Ulang</button>
+      <button class="btn ghost" id="testConnectionBtn">Tes Koneksi</button>
+      <button class="btn ghost" id="closeSettingsBtn">Tutup</button>
+    </div>
+    <div id="testResult" class="test-result" hidden></div>
+  </div>
+</div>
+
+<!-- Raw data modal -->
+<div class="overlay" id="rawModalOverlay" hidden>
+  <div class="modal-box">
+    <h2 style="margin-top:0;font-size:15px;">Data Mentah Proyek</h2>
+    <div class="table-scroll" id="rawModalBody"></div>
+    <div class="panel-actions"><button class="btn ghost" id="closeRawModalBtn">Tutup</button></div>
+  </div>
+</div>
+
+<script>
+/* =========================================================================
+   CONFIG — ubah nilai di bawah ini agar dashboard menunjuk ke Google Sheet
+   Anda sendiri. Ini adalah nilai default; bisa juga diubah sementara lewat
+   panel Pengaturan (ikon gerigi) tanpa mengedit file.
+   ========================================================================= */
+const DEFAULT_CONFIG = {
+  spreadsheetId: '1tyc8JQgDrAcZ2lmHXu2ZKgCkO-W3r9vvgwxv_Tb1d2Y',
+  reportMonth: '', // 'YYYY-MM', kosong = bulan berjalan
+  divisions: [
+    { key:'EPCC',     label:'EPCC',     masterSheet:'EPCC',     taxSheet:'PAJAK EPCC' },
+    { key:'INFRA',    label:'Infra',    masterSheet:'INFRA',    taxSheet:'PAJAK INFRA' },
+    { key:'BUILDING', label:'Building', masterSheet:'BUILDING', taxSheet:'PAJAK BUILDING' },
+  ],
+  dataStartRow: 12,
+  // (Opsional) URL Web App Google Apps Script + token rahasia — kalau diisi, tombol "Simpan
+  // Catatan" pada kartu Masalah Potensial ikut menulis balik ke Google Sheet (bukan cuma
+  // localStorage). Kosong = dashboard tetap murni baca-saja seperti sebelumnya. Lihat README
+  // bagian "Simpan Catatan ke Google Sheet" untuk cara membuat Web App-nya.
+  appsScriptUrl: 'https://script.google.com/macros/s/AKfycbx21elynQ3YMQVFSVLeOoU1ntQ445Bw3nJfvUxYS6tR-XJfrF0_CwMymUxnEtb330jS/exec',
+  appsScriptSecret: 'wika@123',
+};
+
+/* ---------- Gerbang akses sederhana ----------
+   Dashboard ini file statis (mis. di GitHub Pages) — siapa pun yang punya link BISA membuka
+   halamannya. Gerbang ini BUKAN keamanan penuh, hanya penyaring dasar supaya orang yang
+   kebetulan menemukan link tidak langsung melihat data (kata sandi tetap terlihat siapa pun
+   yang membuka "View Page Source"). Ganti nilai password di bawah kapan saja sesuai kebutuhan,
+   lalu upload ulang file index.html ini. Set enabled:false untuk mematikan gerbang ini sama sekali. */
+const ACCESS_GATE = {
+  enabled: true,
+  password: 'wika2026',
+};
+let CONFIG = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+
+/* ---------- Column maps (0-indexed, A=0) ---------- */
+const COL = {
+  NO:1, STATUS:2, PROFIT_CENTRE:3, NAMA_PROYEK:4, NAMA_MP:5, LOKASI:6, NAMA_KSO:7,
+  PORSI_WIKA:8, STATUS_PROYEK:9, TIPE_STATUS:10, KATEGORI:11, KUALIFIKASI_PPN:12,
+  TOP:13, TIPE_KONTRAK:14, TIPE_KONTRAK2:15, NILAI_KONTRAK:16, SUMBER_DANA:17,
+  TGL_MULAI:18, TGL_PHO:19, TGL_FHO:20, PROGRESS:21,
+  INV_TITIPAN:23, INV_PINJAMAN:24, INV_REIMBURSE:25, INV_PMN:26, INV_LABAJO:27, INV_SETORAN_LABA:28, INV_TOTAL:29,
+  PIUT_VENT_1_2:30, PIUT_VENT_3_6:31, PIUT_VENT_6:32, PIUT_VENT_TOTAL:33,
+  UTANG_VENTURA:34,
+  KAS:36, BANK_TMP:37, BANK_KM:38,
+  AGING_PU_1_2:39, AGING_PU_3_6:40, AGING_PU_6:41, PIUTANG_USAHA:42,
+  AGING_TB_1_2:43, AGING_TB_3_6:44, AGING_TB_6:45, TAGBRUT:46,
+  PPN_M:47, PDPK:48, PERSEDIAAN:49, ASET_LAINNYA:50, TOTAL_ASET:51,
+  HUTANG_USAHA:52, HUTANG_PAJAK:53, BAD:54, LIAB_LAINNYA:55, TOTAL_LIABILITAS:56, EKUITAS:57,
+  BIAYA_MATERIAL:59, BIAYA_UPAH:60, BIAYA_ALAT:61, BIAYA_SUBKONT:62, TOTAL_BIAYA:63,
+  PENJUALAN:64, LABA_RKP:65, LABA_RKP_PCT:66, LABA_REALISASI:67,
+  CI1_PINJAMAN:69, CI1_REIMBURSE:70, CI1_PMN:71, CI1_BILLING:72, CI1_SETORAN:73, CI1_TOTAL:74,
+  CI2_PINJAMAN:75, CI2_REIMBURSE:76, CI2_PMN:77, CI2_BILLING:78, CI2_SETORAN:79, CI2_TOTAL:80,
+  CI3_PINJAMAN:81, CI3_REIMBURSE:82, CI3_PMN:83, CI3_BILLING:84, CI3_SETORAN:85, CI3_TOTAL:86,
+  CASHIN_RA:87, CASHIN_RI:88,
+  MASALAH:90,
+};
+const TAXCOL = {
+  NO:1, KSO:2, PROYEK:3, NPWP:4, KPP:5, STATUS:6, PORSI:7, SALDO_PPNM:8,
+  MASA_BULAN:9, MASA_TAHUN:10, NILAI_RESTITUSI:11, KOREKSI:12, NILAI_CAIR:13,
+  STATUS_RESTITUSI:14, TGL_PENGAJUAN:15, SP2:16, SPHP:17, SKPLB:18, KETERANGAN:19, MATCH:21,
+};
+const STAGES = [
+  { key:'belum',  label:'Belum Diajukan',   test:s => /^belum diajukan$/i.test(s) },
+  { key:'ajuk',   label:'Pengajuan',         test:s => /pengajuan/i.test(s) && !/pemeriksaan/i.test(s) && !/transfer/i.test(s) },
+  { key:'periksa',label:'Pemeriksaan',       test:s => /pemeriksaan/i.test(s) },
+  { key:'transfer',label:'Proses Transfer',  test:s => /proses transfer/i.test(s) },
+  { key:'cairbln',label:'Cair Bulan Ini',    test:s => /cair bulan ini/i.test(s) },
+  { key:'cair',   label:'Sudah Cair',        test:s => /sudah cair/i.test(s) },
+];
+
+/* ---------- State ---------- */
+const state = {
+  loading:false, error:null,
+  projects:[],              // combined across all divisions
+  taxByDivision:{},         // key -> tax rows array
+  selectedId:null,
+  chartInstances:{},
+  theme: 'light',
+};
+
+/* ---------- Utils ---------- */
+function cellAt(row, idx){ if(!row || !row.c || !row.c[idx]) return null; return row.c[idx].v; }
+function numeric(v){ if(v===null||v===undefined||v==='') return 0; if(typeof v==='number') return v; const n=Number(v); return isNaN(n)?0:n; }
+function txt(v){ return (v===null||v===undefined) ? '' : String(v).trim(); }
+function parseGvizDate(v){
+  if (typeof v === 'string' && v.indexOf('Date(') === 0){
+    const parts = v.slice(5,-1).split(',').map(Number);
+    return new Date(parts[0], parts[1], parts[2]||1);
+  }
+  return null;
+}
+const idNum = new Intl.NumberFormat('id-ID',{maximumFractionDigits:0});
+const idNum1 = new Intl.NumberFormat('id-ID',{maximumFractionDigits:1});
+function fmtJuta(v){ return idNum.format(Math.round((v||0)/1e6) + 0); }
+/* Format akuntansi untuk angka biaya yang bisa negatif: dalam kurung, bukan tanda minus —
+   dipakai khusus di Laporan Laba Rugi (bukan fmtJuta biasa yang tetap dipakai di tempat lain). */
+function fmtJutaAcct(v){
+  const n = Math.round((v||0)/1e6);
+  return n < 0 ? '(' + idNum.format(Math.abs(n)) + ')' : idNum.format(n);
+}
+/* Versi HTML (untuk tabel) — angka negatif dalam kurung DAN berwarna merah. */
+function fmtJutaAcctHtml(v){
+  const n = Math.round((v||0)/1e6);
+  return n < 0 ? `<span style="color:var(--critical)">(${idNum.format(Math.abs(n))})</span>` : idNum.format(n);
+}
+/* Versi ringkas untuk label di tengah donut (ruang kecil) — otomatis pakai satuan Miliar
+   kalau nilainya besar, supaya angka tidak terpotong. */
+function fmtCompactRp(v){
+  const juta = (v||0)/1e6;
+  if (Math.abs(juta) >= 1000) return (juta/1000).toLocaleString('id-ID',{maximumFractionDigits:2}) + ' M';
+  return idNum.format(Math.round(juta)) + ' Jt';
+}
+function fmtRp(v){ return 'Rp ' + idNum.format(Math.round(v||0)); }
+function fmtPct(v, digits){ if(v===null||v===undefined||isNaN(v)) return '-'; return (v*100).toLocaleString('id-ID',{maximumFractionDigits: digits===undefined?1:digits})+'%'; }
+/* Some source rows store a percentage as pre-formatted text (e.g. "8,35%"),
+   others as a raw fraction (e.g. 0.085) — normalize either into one display form. */
+function fmtPctField(v){
+  if (v === null || v === undefined || v === '') return '';
+  if (typeof v === 'number') return fmtPct(v, 2);
+  return String(v);
+}
+function fmtDate(v){
+  const d = parseGvizDate(v) || (v ? new Date(v) : null);
+  if (!d || isNaN(d.getTime())) return '-';
+  return d.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
+}
+function addMonths(date, n){ const d = new Date(date); d.setMonth(d.getMonth()+n); return d; }
+function monthLabel(date){ return date.toLocaleDateString('id-ID',{month:'short',year:'2-digit'}).replace('.', ''); }
+function esc(s){ return String(s===null||s===undefined?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+/* Ring/gauge lingkaran sederhana pakai SVG murni (bukan Chart.js) — supaya tetap tampil
+   walau library Chart.js gagal dimuat, dan cocok untuk metrik rasio 0-100% seperti reference. */
+/* Ikon kecil (10x10) untuk prefiks badge ringkasan proyek — dekoratif saja, meniru referensi
+   yang menampilkan ikon centang/pin/dsb di depan setiap badge. */
+const MINI_ICONS = {
+  check:'<path d="M20 6 9 17l-5-5"/>',
+  pin:'<path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12Z"/><circle cx="12" cy="10" r="2.3"/>',
+  percent:'<circle cx="7" cy="7" r="2.2"/><circle cx="17" cy="17" r="2.2"/><path d="M18 6 6 18"/>',
+  doc:'<path d="M7 3h10v18l-2-1-2 1-2-1-2 1-2-1V3Z"/>',
+  contract:'<rect x="4" y="4" width="16" height="16" rx="1.5"/><path d="M8 9h8M8 13h5"/>',
+};
+function miniIcon(kind){
+  return `<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="flex:none">${MINI_ICONS[kind]||''}</svg>`;
+}
+function ringGaugeSvg(pct01, color, label, size){
+  size = size || 66;
+  const clamped = Math.max(0, Math.min(1, (pct01===null||pct01===undefined||isNaN(pct01)) ? 0 : pct01));
+  const dash = (clamped*100).toFixed(1);
+  return `<svg viewBox="0 0 36 36" width="${size}" height="${size}" class="ring-gauge">
+    <path class="ring-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+    <path class="ring-fg" style="stroke:${color}" stroke-dasharray="${dash}, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+    <text x="18" y="20.7" class="ring-text">${esc(label)}</text>
+  </svg>`;
+}
+
+/* Google's gviz API can silently trim leading rows, so spreadsheet row numbers
+   don't always line up 1:1 with the returned rows array. Instead of trusting a
+   fixed row offset, find the real header row by locating the "NAMA PROYEK"
+   label, then start reading data immediately after it. Falls back to the
+   configured dataStartRow if that label can't be found. */
+function findDataStartIndex(rows){
+  for (let i = 0; i < rows.length; i++){
+    const row = rows[i];
+    if (!row || !row.c) continue;
+    for (let c = 0; c < row.c.length; c++){
+      const v = row.c[c] && row.c[c].v;
+      if (typeof v === 'string' && v.trim().toUpperCase() === 'NAMA PROYEK') return i + 1;
+    }
+  }
+  return CONFIG.dataStartRow - 1;
+}
+/* Kolom foto proyek bersifat OPSIONAL dan dicari lewat NAMA header (bukan nomor kolom tetap),
+   supaya menambahkannya di sheet tidak berisiko menggeser/merusak seluruh pemetaan kolom COL
+   yang sudah baku. Cukup beri nama header mengandung kata "foto"/"photo"/"gambar"/"image" berisi
+   URL gambar publik (mis. link Google Drive yang sudah di-share "Anyone with link"), di mana saja. */
+function findPhotoColIndex(rows, dataStartIdx){
+  const header = rows[dataStartIdx - 1];
+  if (!header || !header.c) return -1;
+  for (let c = 0; c < header.c.length; c++){
+    const v = header.c[c] && header.c[c].v;
+    if (typeof v === 'string' && /foto|photo|gambar|image/i.test(v)) return c;
+  }
+  return -1;
+}
+
+function seriesColors(){
+  const cs = getComputedStyle(document.documentElement);
+  return [1,2,3,4,5,6,7,8].map(i => cs.getPropertyValue('--series-'+i).trim());
+}
+function statusColor(kind){
+  const cs = getComputedStyle(document.documentElement);
+  return cs.getPropertyValue('--'+kind).trim();
+}
+function seqColors(){
+  const cs = getComputedStyle(document.documentElement);
+  return ['250','350','450','550','650'].map(s => cs.getPropertyValue('--seq-'+s).trim());
+}
+
+/* ---------- Chart visual helpers: gradien + label nilai (modern & minimalis) ---------- */
+const CHART_FONT_FAMILY = '"Inter",-apple-system,"Segoe UI",Roboto,sans-serif';
+function hexToRgb(hex){
+  hex = String(hex||'').trim().replace('#','');
+  if (hex.length===3) hex = hex.split('').map(c=>c+c).join('');
+  const num = parseInt(hex,16) || 0;
+  return { r:(num>>16)&255, g:(num>>8)&255, b:num&255 };
+}
+/* Gradien linear tipis + sedikit transparan — dipakai untuk semua bar (vertikal/horizontal/waterfall) */
+function barGradient(ctx, chartArea, hex, horizontal){
+  if (!chartArea) return hex;
+  const rgb = hexToRgb(hex);
+  const g = horizontal
+    ? ctx.createLinearGradient(chartArea.left, 0, chartArea.right, 0)
+    : ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+  g.addColorStop(0, `rgba(${rgb.r},${rgb.g},${rgb.b},0.55)`);
+  g.addColorStop(1, `rgba(${rgb.r},${rgb.g},${rgb.b},0.92)`);
+  return g;
+}
+/* Gradien radial dari tengah donut ke luar — konsisten untuk semua segmen */
+function donutGradient(ctx, chartArea, hex){
+  if (!chartArea) return hex;
+  const rgb = hexToRgb(hex);
+  const cx = (chartArea.left+chartArea.right)/2, cy = (chartArea.top+chartArea.bottom)/2;
+  const outerR = Math.min(chartArea.right-chartArea.left, chartArea.bottom-chartArea.top)/2;
+  const g = ctx.createRadialGradient(cx,cy,outerR*0.3, cx,cy,outerR);
+  g.addColorStop(0, `rgba(${rgb.r},${rgb.g},${rgb.b},0.5)`);
+  g.addColorStop(1, `rgba(${rgb.r},${rgb.g},${rgb.b},0.92)`);
+  return g;
+}
+/* Plugin Chart.js kustom: menampilkan nilai langsung di atas grafik (bar/doughnut), tanpa perlu
+   library tambahan dari CDN. Diaktifkan lewat options.plugins.valueLabels = {labels, mode, color}. */
+const valueLabelsPlugin = {
+  id: 'valueLabels',
+  afterDatasetsDraw(chart){
+    const opts = chart.config.options && chart.config.options.plugins && chart.config.options.plugins.valueLabels;
+    if (!opts || !opts.labels) return;
+    const meta = chart.getDatasetMeta(0);
+    if (!meta || !meta.data || !meta.data.length) return;
+    const ctx = chart.ctx;
+    ctx.save();
+    ctx.font = '700 10.5px ' + CHART_FONT_FAMILY;
+    ctx.textBaseline = 'middle';
+    // Label berformat akuntansi "(1.234)" (dibuat via fmtJutaAcct) menandakan angka biaya
+    // negatif — digambar warna merah supaya konsisten dengan tabelnya (fmtJutaAcctHtml).
+    const critical = statusColor('critical');
+    meta.data.forEach((el, i) => {
+      const label = opts.labels[i];
+      if (label === undefined || label === null || label === '') return;
+      const isNegativeAcct = typeof label === 'string' && label.charAt(0) === '(' && label.charAt(label.length-1) === ')';
+      if (opts.mode === 'doughnut'){
+        const frac = (el.circumference || 0) / (2*Math.PI);
+        if (frac < 0.06) return; // segmen terlalu kecil, lewati supaya tidak numpuk
+        const angle = (el.startAngle + el.endAngle) / 2;
+        const r = (el.innerRadius + el.outerRadius) / 2;
+        const x = el.x + Math.cos(angle) * r, y = el.y + Math.sin(angle) * r;
+        ctx.fillStyle = 'rgba(255,255,255,.95)';
+        ctx.textAlign = 'center';
+        ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = 3;
+        ctx.fillText(label, x, y);
+        ctx.shadowBlur = 0;
+      } else if (opts.mode === 'bar-horizontal'){
+        const base = el.base !== undefined ? el.base : el.x;
+        const endX = el.x >= base ? el.x + 6 : el.x - 6;
+        ctx.fillStyle = isNegativeAcct ? critical : (opts.color || '#52514e');
+        ctx.textAlign = el.x >= base ? 'left' : 'right';
+        ctx.fillText(label, endX, el.y);
+      } else { // bar-vertical (termasuk waterfall)
+        const base = el.base !== undefined ? el.base : el.y;
+        const topY = Math.min(el.y, base) - 7;
+        ctx.fillStyle = isNegativeAcct ? critical : (opts.color || '#52514e');
+        ctx.textAlign = 'center';
+        ctx.fillText(label, el.x, topY);
+      }
+    });
+    ctx.restore();
+  }
+};
+
+/* ---------- Fetch layer ---------- */
+async function fetchGvizTable(sheetName){
+  const url = 'https://docs.google.com/spreadsheets/d/' + encodeURIComponent(CONFIG.spreadsheetId) +
+              '/gviz/tq?tqx=out:json&sheet=' + encodeURIComponent(sheetName) + '&headers=0&t=' + Date.now();
+  let res;
+  try{
+    res = await fetch(url, { credentials:'omit' });
+  }catch(e){
+    throw new Error('Gagal menghubungi Google Sheets (jaringan/CORS). Pastikan koneksi internet aktif.');
+  }
+  if (!res.ok){
+    throw new Error('HTTP ' + res.status + ' saat membaca sheet "' + sheetName + '". Pastikan nama sheet benar dan spreadsheet dibagikan sebagai "Anyone with the link can view".');
+  }
+  const text = await res.text();
+  const m = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\);?\s*$/);
+  if (!m){
+    if (/accounts\.google\.com|ServiceLogin/i.test(text)) {
+      throw new Error('Spreadsheet belum dibagikan secara publik. Buka Share → "Anyone with the link" → Viewer, lalu coba lagi.');
+    }
+    throw new Error('Format respons dari sheet "' + sheetName + '" tidak dikenali.');
+  }
+  let json;
+  try{ json = JSON.parse(m[1]); }catch(e){ throw new Error('Gagal membaca data sheet "' + sheetName + '".'); }
+  if (json.status === 'error'){
+    const msg = (json.errors && json.errors[0] && json.errors[0].detailed_message) || 'sheet tidak ditemukan';
+    throw new Error('Sheet "' + sheetName + '" bermasalah: ' + msg);
+  }
+  return json.table;
+}
+
+function buildProject(divKey, divLabel, row, photoColIdx){
+  const name = txt(cellAt(row, COL.NAMA_PROYEK));
+  const invLabaJo = numeric(cellAt(row, COL.INV_LABAJO));
+  const invSetoran = numeric(cellAt(row, COL.INV_SETORAN_LABA));
+  return {
+    id: divKey + '::' + (cellAt(row, COL.PROFIT_CENTRE) || name) ,
+    fotoUrl: (photoColIdx!==undefined && photoColIdx>=0) ? txt(cellAt(row, photoColIdx)) : '',
+    divisiKey: divKey, divisi: divLabel,
+    no: cellAt(row, COL.NO), statusRaw: txt(cellAt(row, COL.STATUS)), profitCentre: txt(cellAt(row, COL.PROFIT_CENTRE)),
+    nama: name, namaMp: txt(cellAt(row, COL.NAMA_MP)), lokasi: txt(cellAt(row, COL.LOKASI)), namaKso: txt(cellAt(row, COL.NAMA_KSO)),
+    porsiWika: numeric(cellAt(row, COL.PORSI_WIKA)),
+    statusProyek: txt(cellAt(row, COL.STATUS_PROYEK)), tipeStatus: txt(cellAt(row, COL.TIPE_STATUS)),
+    kategori: txt(cellAt(row, COL.KATEGORI)), kualifikasiPpn: txt(cellAt(row, COL.KUALIFIKASI_PPN)), top: txt(cellAt(row, COL.TOP)),
+    tipeKontrak: txt(cellAt(row, COL.TIPE_KONTRAK)), tipeKontrak2: txt(cellAt(row, COL.TIPE_KONTRAK2)),
+    nilaiKontrak: numeric(cellAt(row, COL.NILAI_KONTRAK)), sumberDana: txt(cellAt(row, COL.SUMBER_DANA)),
+    tglMulai: cellAt(row, COL.TGL_MULAI), tglPho: cellAt(row, COL.TGL_PHO), tglFho: cellAt(row, COL.TGL_FHO),
+    progress: numeric(cellAt(row, COL.PROGRESS)),
+    invTitipan: numeric(cellAt(row, COL.INV_TITIPAN)), invPinjaman: numeric(cellAt(row, COL.INV_PINJAMAN)),
+    invReimburse: numeric(cellAt(row, COL.INV_REIMBURSE)), invPmn: numeric(cellAt(row, COL.INV_PMN)),
+    invLabaJo, invSetoran, invTotal: numeric(cellAt(row, COL.INV_TOTAL)),
+    labaBelumDisetor: invLabaJo + invSetoran,
+    piutVent12: numeric(cellAt(row, COL.PIUT_VENT_1_2)), piutVent36: numeric(cellAt(row, COL.PIUT_VENT_3_6)),
+    piutVent6: numeric(cellAt(row, COL.PIUT_VENT_6)), piutVentTotal: numeric(cellAt(row, COL.PIUT_VENT_TOTAL)),
+    utangVentura: numeric(cellAt(row, COL.UTANG_VENTURA)),
+    kas: numeric(cellAt(row, COL.KAS)), bankTmp: numeric(cellAt(row, COL.BANK_TMP)), bankKm: numeric(cellAt(row, COL.BANK_KM)),
+    agingPu12: numeric(cellAt(row, COL.AGING_PU_1_2)), agingPu36: numeric(cellAt(row, COL.AGING_PU_3_6)), agingPu6: numeric(cellAt(row, COL.AGING_PU_6)),
+    piutangUsaha: numeric(cellAt(row, COL.PIUTANG_USAHA)),
+    agingTb12: numeric(cellAt(row, COL.AGING_TB_1_2)), agingTb36: numeric(cellAt(row, COL.AGING_TB_3_6)), agingTb6: numeric(cellAt(row, COL.AGING_TB_6)),
+    tagbrut: numeric(cellAt(row, COL.TAGBRUT)),
+    ppnM: numeric(cellAt(row, COL.PPN_M)), pdpk: numeric(cellAt(row, COL.PDPK)), persediaan: numeric(cellAt(row, COL.PERSEDIAAN)),
+    asetLainnya: numeric(cellAt(row, COL.ASET_LAINNYA)), totalAset: numeric(cellAt(row, COL.TOTAL_ASET)),
+    hutangUsaha: numeric(cellAt(row, COL.HUTANG_USAHA)), hutangPajak: numeric(cellAt(row, COL.HUTANG_PAJAK)),
+    bad: numeric(cellAt(row, COL.BAD)), liabLainnya: numeric(cellAt(row, COL.LIAB_LAINNYA)),
+    totalLiabilitas: numeric(cellAt(row, COL.TOTAL_LIABILITAS)), ekuitas: numeric(cellAt(row, COL.EKUITAS)),
+    biayaMaterial: numeric(cellAt(row, COL.BIAYA_MATERIAL)), biayaUpah: numeric(cellAt(row, COL.BIAYA_UPAH)),
+    biayaAlat: numeric(cellAt(row, COL.BIAYA_ALAT)), biayaSubkont: numeric(cellAt(row, COL.BIAYA_SUBKONT)),
+    totalBiaya: numeric(cellAt(row, COL.TOTAL_BIAYA)),
+    penjualan: numeric(cellAt(row, COL.PENJUALAN)), labaRkp: numeric(cellAt(row, COL.LABA_RKP)),
+    labaRkpPct: cellAt(row, COL.LABA_RKP_PCT), labaRealisasi: numeric(cellAt(row, COL.LABA_REALISASI)),
+    ci: [
+      { pinjaman:numeric(cellAt(row,COL.CI1_PINJAMAN)), reimburse:numeric(cellAt(row,COL.CI1_REIMBURSE)), pmn:numeric(cellAt(row,COL.CI1_PMN)), billing:numeric(cellAt(row,COL.CI1_BILLING)), setoran:numeric(cellAt(row,COL.CI1_SETORAN)), total:numeric(cellAt(row,COL.CI1_TOTAL)) },
+      { pinjaman:numeric(cellAt(row,COL.CI2_PINJAMAN)), reimburse:numeric(cellAt(row,COL.CI2_REIMBURSE)), pmn:numeric(cellAt(row,COL.CI2_PMN)), billing:numeric(cellAt(row,COL.CI2_BILLING)), setoran:numeric(cellAt(row,COL.CI2_SETORAN)), total:numeric(cellAt(row,COL.CI2_TOTAL)) },
+      { pinjaman:numeric(cellAt(row,COL.CI3_PINJAMAN)), reimburse:numeric(cellAt(row,COL.CI3_REIMBURSE)), pmn:numeric(cellAt(row,COL.CI3_PMN)), billing:numeric(cellAt(row,COL.CI3_BILLING)), setoran:numeric(cellAt(row,COL.CI3_SETORAN)), total:numeric(cellAt(row,COL.CI3_TOTAL)) },
+    ],
+    cashinRa: numeric(cellAt(row, COL.CASHIN_RA)), cashinRi: numeric(cellAt(row, COL.CASHIN_RI)),
+    masalah: txt(cellAt(row, COL.MASALAH)),
+  };
+}
+
+async function loadAll(){
+  state.loading = true; state.error = null;
+  renderTopState();
+  const projects = [];
+  const taxByDivision = {};
+  const results = [];
+  for (const div of CONFIG.divisions){
+    results.push((async () => {
+      const out = { key:div.key, label:div.label, ok:false, count:0, err:null };
+      try{
+        const masterTable = await fetchGvizTable(div.masterSheet);
+        const rows = masterTable.rows || [];
+        const startIdx = findDataStartIndex(rows);
+        const photoColIdx = findPhotoColIndex(rows, startIdx);
+        for (let i = startIdx; i < rows.length; i++){
+          const row = rows[i];
+          const noVal = cellAt(row, COL.NO);
+          const nameVal = txt(cellAt(row, COL.NAMA_PROYEK));
+          if (noVal === null || noVal === '' || isNaN(Number(noVal))) continue;
+          if (!nameVal) continue;
+          projects.push(buildProject(div.key, div.label, row, photoColIdx));
+        }
+        out.count = projects.filter(p => p.divisiKey === div.key).length;
+        out.ok = true;
+      }catch(e){
+        out.err = e.message;
+      }
+      try{
+        const taxTable = await fetchGvizTable(div.taxSheet);
+        taxByDivision[div.key] = taxTable.rows || [];
+      }catch(e){
+        taxByDivision[div.key] = [];
+      }
+      return out;
+    })());
+  }
+  const summary = await Promise.all(results);
+  state.projects = projects;
+  state.taxByDivision = taxByDivision;
+  state.loading = false;
+  state.divisionSummary = summary;
+  const anyOk = summary.some(s => s.ok);
+  if (!anyOk){
+    state.error = summary.map(s => s.label + ': ' + (s.err || 'gagal dimuat')).join('\n');
+  } else {
+    state.error = null;
+  }
+  if (anyOk){ state.lastUpdate = new Date(); }
+  updateLastUpdateLabel();
+  renderTopState();
+  populateFilters();
+}
+function updateLastUpdateLabel(){
+  const el = document.getElementById('lastUpdateLabel');
+  if (!el) return;
+  el.textContent = state.lastUpdate
+    ? (state.lastUpdate.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) + ' ' + state.lastUpdate.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}))
+    : '-';
+}
+
+/* ---------- Tax aggregation ---------- */
+function aggregateTax(divKey, projectName){
+  const rows = state.taxByDivision[divKey] || [];
+  const target = txt(projectName);
+  const matched = rows.filter(r => txt(cellAt(r, TAXCOL.MATCH)) === target);
+  const yearMap = new Map();
+  const stageBuckets = STAGES.map(s => ({ label:s.label, value:0 }));
+  let kpp = '';
+  matched.forEach(r => {
+    const yearRaw = cellAt(r, TAXCOL.MASA_TAHUN);
+    const val = numeric(cellAt(r, TAXCOL.NILAI_RESTITUSI));
+    if (!kpp){ const k = txt(cellAt(r, TAXCOL.KPP)); if (k) kpp = k; }
+    if (yearRaw !== null && yearRaw !== ''){
+      const y = Number(yearRaw);
+      const label = (!isNaN(y) && y < 2024) ? '<2024' : String(yearRaw);
+      yearMap.set(label, (yearMap.get(label) || 0) + val);
+    }
+    const statusRaw = txt(cellAt(r, TAXCOL.STATUS_RESTITUSI));
+    if (statusRaw){
+      const idx = STAGES.findIndex(s => s.test(statusRaw));
+      if (idx >= 0) stageBuckets[idx].value += val;
+    }
+  });
+  return { yearMap, stageBuckets, kpp };
+}
+
+/* ---------- Filters / selection UI ---------- */
+function populateFilters(){
+  const divSel = document.getElementById('divisiSelect');
+  divSel.innerHTML = '<option value="">Semua Divisi</option>' +
+    CONFIG.divisions.map(d => {
+      const count = state.projects.filter(p => p.divisiKey === d.key).length;
+      return `<option value="${esc(d.key)}">${esc(d.label)} (${count})</option>`;
+    }).join('');
+  if (!state.selectedId && state.projects.length){
+    selectProjectSilently(state.projects[0]);
+  }
+  renderTopState();
+  renderAll();
+}
+function currentDivisionFilter(){ return document.getElementById('divisiSelect').value; }
+function projectLabel(p){ return p.nama + ' — ' + (p.profitCentre || p.divisi); }
+function projectPool(){
+  const divKey = currentDivisionFilter();
+  return state.projects.filter(p => !divKey || p.divisiKey === divKey);
+}
+function selectProjectSilently(p){
+  state.selectedId = p.id;
+  document.getElementById('proyekInput').value = projectLabel(p);
+}
+function selectProject(p){
+  selectProjectSilently(p);
+  closeProyekPanel();
+  renderAll();
+  renderTopState();
+}
+function renderProyekPanel(filterText){
+  const panel = document.getElementById('proyekPanel');
+  const q = (filterText || '').trim().toLowerCase();
+  const pool = projectPool();
+  const list = q ? pool.filter(p => (p.nama + ' ' + (p.profitCentre||'')).toLowerCase().includes(q)) : pool;
+  if (!list.length){
+    panel.innerHTML = `<div class="combo-empty">Tidak ada proyek yang cocok</div>`;
+    return;
+  }
+  panel.innerHTML = list.map(p => `<div class="combo-item" data-id="${esc(p.id)}"><span class="nm">${esc(p.nama)}</span><span class="cd">${esc(p.profitCentre || p.divisi)}</span></div>`).join('');
+  panel.querySelectorAll('.combo-item').forEach(el => {
+    el.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      const proj = state.projects.find(x => x.id === el.getAttribute('data-id'));
+      if (proj) selectProject(proj);
+    });
+  });
+}
+function openProyekPanel(filterText){
+  renderProyekPanel(filterText);
+  document.getElementById('proyekPanel').hidden = false;
+}
+function closeProyekPanel(){ document.getElementById('proyekPanel').hidden = true; }
+function currentProject(){ return state.projects.find(p => p.id === state.selectedId) || null; }
+
+/* ---------- Top state rendering ---------- */
+function renderTopState(){
+  const loadingEl = document.getElementById('loadingState');
+  const errorEl = document.getElementById('errorState');
+  const emptyEl = document.getElementById('emptyState');
+  const dashEl = document.getElementById('dashboard');
+  const dot = document.getElementById('statusDot');
+  const txtEl = document.getElementById('statusText');
+
+  loadingEl.hidden = true; errorEl.hidden = true; emptyEl.hidden = true; dashEl.hidden = true;
+
+  if (state.loading){
+    loadingEl.hidden = false;
+    dot.className = 'dot loading'; txtEl.textContent = 'Memuat data…';
+    return;
+  }
+  if (state.error){
+    errorEl.hidden = false;
+    document.getElementById('errorDetail').textContent = state.error;
+    dot.className = 'dot err'; txtEl.textContent = 'Gagal memuat';
+    return;
+  }
+  if (!state.projects.length){
+    emptyEl.hidden = false;
+    dot.className = 'dot err'; txtEl.textContent = 'Tidak ada proyek';
+    return;
+  }
+  dot.className = 'dot ok';
+  const ok = (state.divisionSummary||[]).filter(s=>s.ok).length;
+  txtEl.textContent = state.projects.length + ' proyek dimuat (' + ok + '/' + CONFIG.divisions.length + ' divisi)';
+  if (!state.selectedId){ emptyEl.hidden = false; return; }
+  dashEl.hidden = false;
+}
+
+/* ---------- Period labels ---------- */
+function getPeriods(){
+  let base;
+  if (CONFIG.reportMonth){
+    const [y,m] = CONFIG.reportMonth.split('-').map(Number);
+    base = new Date(y, m-1, 1);
+  } else {
+    const now = new Date(); base = new Date(now.getFullYear(), now.getMonth(), 1);
+  }
+  return [addMonths(base,1), addMonths(base,2), addMonths(base,3)];
+}
+
+/* ================= RENDER ================= */
+let chartRenderToken = 0;
+function renderAll(){
+  const p = currentProject();
+  if (!p){ renderTopState(); return; }
+  document.getElementById('periodLabel').textContent =
+    (CONFIG.reportMonth ? new Date(CONFIG.reportMonth+'-01').toLocaleDateString('id-ID',{month:'long',year:'numeric'}) : new Date().toLocaleDateString('id-ID',{month:'long',year:'numeric'}));
+  // aggregateTax() dipindah ke depan (sebelum renderHero) supaya info KPP-nya bisa
+  // ditampilkan di baris ringkasan proyek pada hero.
+  const tax = aggregateTax(p.divisiKey, p.nama);
+  renderHero(p, tax);
+  renderKpis(p);
+  renderCashinTable(p);
+  renderRkap(p);
+  renderMasalah(p);
+  // Tunggu Chart.js selesai dicoba dimuat (bisa dari beberapa sumber cadangan) sebelum
+  // menggambar grafik, supaya tidak salah anggap "gagal" padahal library masih dalam proses dimuat.
+  const myToken = ++chartRenderToken;
+  window.__chartJsReady.then((ready) => {
+    if (myToken !== chartRenderToken) return; // sudah digantikan oleh renderAll() yang lebih baru
+    if (!ready) showChartLibWarning();
+    renderCharts(p, tax);
+  });
+}
+let chartLibWarningShown = false;
+function showChartLibWarning(){
+  if (chartLibWarningShown) return;
+  chartLibWarningShown = true;
+  const bar = document.createElement('div');
+  bar.className = 'chartlib-warning';
+  bar.innerHTML = 'Library grafik (Chart.js) gagal dimuat dari internet — kemungkinan jaringan/proxy Anda memblokir CDN publik. Data proyek tetap benar (lihat angka & tombol "Tabel" di setiap kartu), namun tampilan grafik akan kosong. Solusi: coba jaringan lain, atau minta admin IT mengizinkan domain cdnjs.cloudflare.com / cdn.jsdelivr.net / unpkg.com, atau unduh <code>chart.umd.min.js</code> dan taruh satu folder dengan index.html.';
+  const main = document.querySelector('main');
+  main.insertBefore(bar, main.firstChild);
+}
+
+function statusBadgeClass(s){
+  s = (s||'').toLowerCase();
+  if (s.includes('berjalan')) return 'good';
+  if (s.includes('pemeliharaan')) return 'warning';
+  if (s.includes('selesai')) return '';
+  return '';
+}
+
+/* Foto proyek: sumber utama adalah kolom di Google Sheet (dibaca lewat findPhotoColIndex,
+   berlaku untuk semua orang yang buka dashboard). Sebagai jalan pintas sebelum kolom itu
+   diisi, tersedia juga tombol unggah foto lokal — HANYA tersimpan di browser/perangkat ini
+   (localStorage), tidak ikut terlihat oleh anggota tim lain sampai fotonya dipindah ke sheet. */
+function projectPhotoStorageKey(p){ return 'jo_dash_photo::' + p.id; }
+function getLocalProjectPhoto(p){ try { return localStorage.getItem(projectPhotoStorageKey(p)) || ''; } catch(e){ return ''; } }
+function setLocalProjectPhoto(p, dataUrl){ try { localStorage.setItem(projectPhotoStorageKey(p), dataUrl); } catch(e){ console.error('Gagal menyimpan foto lokal (mungkin browser membatasi penyimpanan)', e); } }
+function clearLocalProjectPhoto(p){ try { localStorage.removeItem(projectPhotoStorageKey(p)); } catch(e){} }
+
+function renderHero(p, tax){
+  const el = document.getElementById('heroCard');
+  const totalHutang = p.hutangUsaha + p.hutangPajak;
+  const sheetPhoto = (p.fotoUrl || '').trim();
+  const localPhoto = sheetPhoto ? '' : getLocalProjectPhoto(p);
+  const photoUrl = sheetPhoto || localPhoto;
+  el.classList.toggle('has-photo', !!photoUrl);
+  el.style.backgroundImage = photoUrl
+    ? `linear-gradient(100deg, rgba(5,13,24,.94) 20%, rgba(5,13,24,.62) 60%, rgba(5,13,24,.3)), url("${photoUrl.replace(/"/g,'%22')}")`
+    : '';
+  const periodPillText = CONFIG.reportMonth
+    ? new Date(CONFIG.reportMonth+'-01').toLocaleDateString('id-ID',{month:'long',year:'numeric'})
+    : new Date().toLocaleDateString('id-ID',{month:'long',year:'numeric'});
+  el.innerHTML = `
+    <div class="hero-toprow">
+      <div class="hero-livepill"><span class="dot-live"></span>Periode ${esc(periodPillText)}</div>
+    </div>
+    <input type="file" accept="image/*" id="heroPhotoInput" hidden>
+    <div class="hero-top">
+      <div class="hero-photobox ${photoUrl?'has-thumb':''} ${sheetPhoto?'is-locked':''}" id="heroPhotoBox"
+        title="${sheetPhoto?'Foto berasal dari kolom Foto Proyek di sheet (tampil untuk semua tim)':'Klik untuk unggah foto proyek (tersimpan di perangkat/browser ini saja — belum tampil untuk tim lain)'}">
+        ${photoUrl
+          ? `<img src="${photoUrl.replace(/"/g,'&quot;')}" alt="Foto proyek">${(!sheetPhoto && localPhoto) ? `<span class="ph-remove" id="heroPhotoRemoveBtn" title="Hapus foto lokal">✕</span>` : ''}`
+          : `<div class="ph-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"/><circle cx="12" cy="13" r="4"/></svg><span>Upload<br>Foto</span></div>`}
+      </div>
+      <div class="hero-title">
+        <div class="kicker">${esc(p.divisi)} &middot; ${esc(p.kategori || '-')}</div>
+        <h2>${esc(p.nama)}</h2>
+        <div class="code">${esc(p.profitCentre||'')} &middot; MP: ${esc(p.namaMp||'-')}</div>
+      </div>
+      <div class="hero-badges">
+        <span class="badge ${statusBadgeClass(p.statusRaw)}">${miniIcon('check')}${esc(p.statusRaw||'-')}</span>
+        <span class="badge">${miniIcon('pin')}${esc(p.lokasi||'-')}</span>
+        <span class="badge">${miniIcon('percent')}Porsi WIKA ${fmtPct(p.porsiWika,0)}</span>
+        <span class="badge">${esc(p.statusProyek||'-')} · ${esc(p.tipeStatus||'-')}</span>
+        <span class="badge">${miniIcon('contract')}${esc(p.tipeKontrak||'-')}</span>
+        <span class="badge">${miniIcon('doc')}${esc(p.kualifikasiPpn||'-')}</span>
+      </div>
+      <div class="hero-progress-block">
+        <div class="hpb-pct">${fmtPct(p.progress,0)}</div>
+        <div class="hpb-label">Progress Proyek</div>
+        <div class="meter-track"><div class="meter-fill amber" style="width:${Math.min(100,Math.max(0,p.progress*100))}%"></div></div>
+      </div>
+    </div>
+    <div class="hero-grid">
+      <div class="hero-item"><div class="k">Tgl Mulai Proyek</div><div class="v">${fmtDate(p.tglMulai)}</div></div>
+      <div class="hero-item"><div class="k">Tgl BAST 1 (PHO)</div><div class="v">${fmtDate(p.tglPho)}</div></div>
+      <div class="hero-item"><div class="k">Tgl BAST 2 (FHO)</div><div class="v">${fmtDate(p.tglFho)}</div></div>
+      <div class="hero-item"><div class="k">Nilai Kontrak</div><div class="v">${fmtJuta(p.nilaiKontrak)} <small>Rp Juta</small></div></div>
+      <div class="hero-item"><div class="k">Sumber Dana</div><div class="v">${esc(p.sumberDana||'-')} <small>${esc(p.top||'-')}</small></div></div>
+      <div class="hero-item"><div class="k">Type of Contract</div><div class="v">${esc(p.tipeKontrak2||'-')}</div></div>
+      <div class="hero-item"><div class="k">KPP</div><div class="v">${esc((tax && tax.kpp) ? tax.kpp : '-')}</div></div>
+      <div class="hero-item"><div class="k">RA Laba RKP</div><div class="v">${fmtJuta(p.labaRkp)} <small>${esc(fmtPctField(p.labaRkpPct))}</small></div></div>
+      <div class="hero-item"><div class="k">Realisasi Laba</div><div class="v">${fmtJuta(p.labaRealisasi)} <small>Rp Juta</small></div></div>
+      <div class="hero-item"><div class="k">Ri Setoran Laba</div><div class="v">${idNum.format(Math.round(-p.invSetoran/1e6) + 0)} <small>Rp Juta</small></div></div>
+      <div class="hero-item"><div class="k">Total Hutang</div><div class="v">${fmtJuta(totalHutang)} <small>Rp Juta</small></div></div>
+      <div class="hero-item"><div class="k">&nbsp;</div><div class="v"><button class="hero-viewbtn" id="viewRawBtn">Lihat <span aria-hidden="true">&rsaquo;</span></button></div></div>
+    </div>
+  `;
+  document.getElementById('viewRawBtn').addEventListener('click', () => openRawModal(p));
+  const photoBox = document.getElementById('heroPhotoBox');
+  if (photoBox && !sheetPhoto){
+    photoBox.addEventListener('click', () => document.getElementById('heroPhotoInput').click());
+  }
+  const photoInput = document.getElementById('heroPhotoInput');
+  if (photoInput){
+    photoInput.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      if (file.size > 5*1024*1024){
+        alert('Ukuran foto maksimal 5MB untuk disimpan di browser. Gunakan foto lebih kecil, atau — supaya semua orang di tim bisa lihat — tambahkan URL foto lewat kolom "Foto Proyek" di Google Sheet.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => { setLocalProjectPhoto(p, reader.result); renderHero(p, tax); };
+      reader.readAsDataURL(file);
+    });
+  }
+  const removeBtn = document.getElementById('heroPhotoRemoveBtn');
+  if (removeBtn) removeBtn.addEventListener('click', (e) => { e.stopPropagation(); clearLocalProjectPhoto(p); renderHero(p, tax); });
+}
+
+function kpiTileHtml(iconPath, label, value, sub, accentColor){
+  return `<div class="kpi-tile" style="${accentColor ? `--tile-accent:${accentColor}` : ''}">
+    <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${iconPath}</svg></div>
+    <div class="label">${label}</div>
+    <div class="value">${value}</div>
+    ${sub ? `<div class="sub">${sub}</div>` : ''}
+  </div>`;
+}
+const ICONS = {
+  wallet:'<rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20"/><circle cx="17" cy="15" r="1"/>',
+  stack:'<path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>',
+  invoice:'<path d="M7 3h10v18l-2-1-2 1-2-1-2 1-2-1V3Z"/><path d="M9 8h6M9 12h6"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>',
+  percent:'<circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/><path d="M18 6 6 18"/>',
+  debt:'<path d="M3 21h18"/><path d="M5 21V9l7-5 7 5v12"/><path d="M10 21v-6h4v6"/>',
+  sales:'<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>',
+  profit:'<path d="M23 6 13.5 15.5 8.5 10.5 1 18"/><path d="M17 6h6v6"/>',
+};
+function renderKpis(p){
+  const el = document.getElementById('kpiGrid');
+  const totalKasBank = p.kas + p.bankTmp + p.bankKm;
+  // Ikon KPI dibuat satu warna aksen biru saja (bukan pelangi) — warna di sini murni dekoratif,
+  // tidak mengkodekan data, jadi tidak perlu dibedakan seperti warna kategori pada grafik.
+  const accent = statusColor('brand-accent') || seriesColors()[0];
+  // "Hutang Usaha & Pajak" dipindah keluar dari baris KPI ini — jadi kartu tersendiri di baris
+  // "Biaya, Hutang Usaha & Pajak & Likuiditas" (lihat renderCharts). Baris KPI di sini jadi 8 kartu.
+  el.innerHTML = [
+    // Penjualan & Laba ditaruh paling depan — dipindah kesini dari kartu Ventura Bersama supaya
+    // langsung terlihat bersama ringkasan proyek di bagian atas.
+    kpiTileHtml(ICONS.sales,'Penjualan', fmtJuta(p.penjualan)+' <small style="font-size:11px;color:var(--text-muted)">Rp Juta</small>', null, accent),
+    kpiTileHtml(ICONS.profit,'Laba', fmtJuta(p.labaRealisasi)+' <small style="font-size:11px;color:var(--text-muted)">Rp Juta</small>',
+      `<span>RA RKP ${fmtJuta(p.labaRkp)}</span>${p.labaRkpPct?`<span>&middot;</span><span>${esc(fmtPctField(p.labaRkpPct))}</span>`:''}`, accent),
+    kpiTileHtml(ICONS.wallet,'Total Saldo Kas &amp; Bank', fmtJuta(totalKasBank)+' <small style="font-size:11px;color:var(--text-muted)">Rp Juta</small>',
+      `<span>Kas ${fmtJuta(p.kas)}</span><span>&middot;</span><span>TMP ${fmtJuta(p.bankTmp)}</span><span>&middot;</span><span>KM ${fmtJuta(p.bankKm)}</span>`, accent),
+    kpiTileHtml(ICONS.stack,'Persediaan', fmtJuta(p.persediaan)+' <small style="font-size:11px;color:var(--text-muted)">Rp Juta</small>', null, accent),
+    kpiTileHtml(ICONS.invoice,'Piutang Usaha &amp; Retensi', fmtJuta(p.piutangUsaha)+' <small style="font-size:11px;color:var(--text-muted)">Rp Juta</small>', null, accent),
+    kpiTileHtml(ICONS.invoice,'Tagihan Bruto', fmtJuta(p.tagbrut)+' <small style="font-size:11px;color:var(--text-muted)">Rp Juta</small>', null, accent),
+    kpiTileHtml(ICONS.stack,'PDP', fmtJuta(p.pdpk)+' <small style="font-size:11px;color:var(--text-muted)">Rp Juta</small>', null, accent),
+    kpiTileHtml(ICONS.percent,'PPN M (Monitoring Pajak)', fmtJuta(p.ppnM)+' <small style="font-size:11px;color:var(--text-muted)">Rp Juta</small>', null, accent),
+  ].join('');
+}
+
+/* Tabel Rencana Cash In: PERIODE jadi kolom (di atas), KATEGORI jadi baris (di samping) —
+   dibalik dari sebelumnya sesuai permintaan, sekaligus membuat tabel lebih ramping (4-5 kolom
+   dibanding 7 kolom pada versi sebelumnya). */
+function renderCashinTable(p){
+  const wrap = document.getElementById('cashinTableWrap');
+  const periods = getPeriods();
+  const periodLabels = periods.map(monthLabel);
+  const cats = [
+    { key:'pinjaman', label:'Pinjaman/Titipan' },
+    { key:'reimburse', label:'Reimbursement' },
+    { key:'pmn', label:'PMN' },
+    { key:'billing', label:'Billing Rate' },
+    { key:'setoran', label:'Setoran Laba' },
+  ];
+  const rows = cats.map(cat => {
+    const vals = p.ci.map(c => c[cat.key]);
+    return { label: cat.label, vals, rowTotal: vals.reduce((a,b)=>a+b,0) };
+  });
+  const colTotals = periods.map((_,i) => rows.reduce((a,r)=>a+r.vals[i],0));
+  const grandTotal = colTotals.reduce((a,b)=>a+b,0);
+  wrap.innerHTML = `<table class="data-table">
+    <thead><tr><th style="text-align:left">Kategori</th>${periodLabels.map(l=>`<th>${esc(l)}</th>`).join('')}<th>Total</th></tr></thead>
+    <tbody>
+      ${rows.map(r=>`<tr><td>${esc(r.label)}</td>${r.vals.map(v=>`<td>${fmtJuta(v)}</td>`).join('')}<td><strong>${fmtJuta(r.rowTotal)}</strong></td></tr>`).join('')}
+      <tr class="total-row"><td>Total</td>${colTotals.map(v=>`<td>${fmtJuta(v)}</td>`).join('')}<td>${fmtJuta(grandTotal)}</td></tr>
+    </tbody></table>`;
+}
+
+function renderRkap(p){
+  const el = document.getElementById('rkapBody');
+  const pct = p.cashinRa === 0 ? (p.cashinRi>0 ? null : 0) : (p.cashinRi/p.cashinRa);
+  const pctText = pct===null ? 'Unplanned' : (p.cashinRa===0 ? '-' : fmtPct(pct,1));
+  const ring = ringGaugeSvg(pct||0, statusColor('brand-accent'), pct===null||p.cashinRa===0 ? '-' : fmtPct(pct,0), 48);
+  el.innerHTML = `<div class="rkap-row">
+    <div class="rkap-stat"><div class="k">RA</div><div class="v">${fmtJuta(p.cashinRa)}</div></div>
+    <div class="rkap-stat"><div class="k">RI</div><div class="v">${fmtJuta(p.cashinRi)}</div></div>
+    <div class="rkap-stat rkap-ring">${ring}<div><div class="k">% Capaian</div><div class="v" style="font-size:13px">${pctText}</div></div></div>
+  </div>`;
+}
+
+/* Catatan Masalah Potensial: sumber utama tetap kolom di Google Sheet, tapi bisa ditulis/diedit
+   LANGSUNG di dashboard. Dua mode, tergantung apakah CONFIG.appsScriptUrl diisi:
+   1. Kosong (default) — "mode lokal": catatan tersimpan di browser/perangkat ini saja
+      (localStorage, sama seperti mekanisme unggah foto lokal), belum tampil untuk tim lain.
+   2. Diisi (mode "go-live") — dashboard mengirim catatan ke Web App Google Apps Script yang
+      Anda deploy sendiri (lihat README bagian "Simpan Catatan ke Google Sheet"), yang lalu
+      menuliskannya balik ke baris proyek terkait di Google Sheet — jadi ikut terlihat oleh
+      semua anggota tim begitu mereka refresh. localStorage tetap dipakai sebagai cadangan kalau
+      pengiriman ke Sheet gagal (mis. sedang offline). */
+function masalahStorageKey(p){ return 'jo_dash_masalah::' + p.id; }
+function getLocalMasalah(p){ try { return localStorage.getItem(masalahStorageKey(p)); } catch(e){ return null; } }
+function setLocalMasalah(p, text){ try { localStorage.setItem(masalahStorageKey(p), text); } catch(e){ console.error('Gagal menyimpan catatan lokal (mungkin browser membatasi penyimpanan)', e); } }
+function clearLocalMasalah(p){ try { localStorage.removeItem(masalahStorageKey(p)); } catch(e){} }
+
+function renderMasalah(p, statusOverride){
+  const el = document.getElementById('masalahBody');
+  const localVal = getLocalMasalah(p); // null = belum pernah ditulis lokal, string = override lokal (boleh kosong)
+  const hasLocal = localVal !== null;
+  const currentText = hasLocal ? localVal : (p.masalah || '');
+  let statusText, statusCls;
+  if (statusOverride){
+    statusText = statusOverride.text; statusCls = statusOverride.ok ? ' saved' : ' error';
+  } else if (hasLocal){
+    statusText = CONFIG.appsScriptUrl
+      ? 'Tersimpan lokal (belum berhasil dikirim ke Google Sheet — coba Simpan lagi)'
+      : 'Tersimpan di perangkat/browser ini (belum tampil untuk tim lain)';
+    statusCls = CONFIG.appsScriptUrl ? ' error' : ' saved';
+  } else {
+    statusText = p.masalah ? 'Dari Google Sheet' : 'Belum ada catatan — tulis di kotak di atas';
+    statusCls = '';
+  }
+  el.innerHTML = `
+    <textarea id="masalahInput" placeholder="Tulis catatan kendala/isu proyek di sini…">${esc(currentText)}</textarea>
+    <div class="masalah-actions">
+      <button class="btn" id="masalahSaveBtn" style="padding:6px 14px;font-size:12px;">Simpan Catatan</button>
+      ${hasLocal ? `<button class="ghost-link" id="masalahResetBtn">Kembalikan ke data sheet</button>` : ''}
+      <span class="masalah-status${statusCls}" id="masalahStatus">${esc(statusText)}</span>
+    </div>
+  `;
+  document.getElementById('masalahSaveBtn').addEventListener('click', () => saveMasalah(p));
+  const resetBtn = document.getElementById('masalahResetBtn');
+  if (resetBtn) resetBtn.addEventListener('click', () => { clearLocalMasalah(p); renderMasalah(p); });
+}
+
+async function saveMasalah(p){
+  const val = document.getElementById('masalahInput').value;
+  setLocalMasalah(p, val); // cadangan lokal selalu ditulis dulu, terlepas dari hasil kirim ke Sheet
+  if (!CONFIG.appsScriptUrl){
+    renderMasalah(p);
+    return;
+  }
+  const btn = document.getElementById('masalahSaveBtn');
+  const statusEl = document.getElementById('masalahStatus');
+  btn.disabled = true; btn.textContent = 'Menyimpan…';
+  statusEl.textContent = 'Mengirim ke Google Sheet…';
+  statusEl.className = 'masalah-status';
+  // Batas waktu 15 detik — kalau koneksi ke Web App "diam" saja (bukan langsung ditolak,
+  // mis. firewall/proxy kantor yang mendiamkan alih-alih menolak tegas), fetch() bisa
+  // menggantung tanpa batas dan mengunci tombol ini selamanya. AbortController memaksa
+  // permintaan dibatalkan setelah 15 detik supaya tombol selalu kembali bisa diklik.
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  try{
+    const div = CONFIG.divisions.find(d => d.key === p.divisiKey);
+    const res = await fetch(CONFIG.appsScriptUrl, {
+      method:'POST',
+      // Content-Type text/plain (bukan application/json) supaya browser mengirimnya sebagai
+      // "simple request" tanpa preflight OPTIONS — Apps Script Web App tidak menangani OPTIONS.
+      headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        secret: CONFIG.appsScriptSecret || '',
+        spreadsheetId: CONFIG.spreadsheetId,
+        masterSheet: div ? div.masterSheet : '',
+        matchKey: p.profitCentre || p.nama,
+        masalah: val,
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    let json = null;
+    try{ json = await res.json(); }catch(e){ /* respons bukan JSON valid, tangani di bawah */ }
+    if (!res.ok || !json || !json.ok){
+      throw new Error((json && json.message) || ('HTTP ' + res.status));
+    }
+    p.masalah = val; // sinkronkan objek proyek di memori supaya konsisten sampai reload berikutnya
+    clearLocalMasalah(p); // Sheet sudah jadi sumber kebenaran lagi, cadangan lokal tidak perlu lagi
+    renderMasalah(p, { text:'Tersimpan ke Google Sheet ✓ (terlihat untuk semua tim)', ok:true });
+  }catch(err){
+    clearTimeout(timeoutId);
+    const message = err.name === 'AbortError' ? 'waktu tunggu habis (15 detik), server tidak merespons' : err.message;
+    renderMasalah(p, { text:'Gagal simpan ke Google Sheet (' + message + ') — tersimpan lokal di perangkat ini saja.', ok:false });
+  }
+}
+
+/* ---------- Charts ---------- */
+function destroyChart(id){ if (state.chartInstances[id]){ state.chartInstances[id].destroy(); delete state.chartInstances[id]; } }
+function chartFallback(canvasId){
+  const wrap = document.getElementById('wrap-'+canvasId);
+  if (wrap) wrap.innerHTML = '<div class="empty-note">Grafik tidak dapat dimuat (library Chart.js gagal diakses dari jaringan ini). Data angka tetap benar — lihat tombol "Tabel", atau coba jaringan lain.</div>';
+}
+let __valueLabelsRegistered = false;
+function ensureChartPlugins(){
+  if (__valueLabelsRegistered || typeof Chart === 'undefined' || typeof Chart.register !== 'function') return;
+  try { Chart.register(valueLabelsPlugin); __valueLabelsRegistered = true; }
+  catch(e){ console.error('Gagal mendaftarkan plugin label nilai', e); }
+}
+function chartGuard(canvasId, buildFn){
+  if (typeof Chart === 'undefined'){ chartFallback(canvasId); return null; }
+  try {
+    ensureChartPlugins();
+    return buildFn();
+  }
+  catch(e){ console.error('Gagal membuat grafik', canvasId, e); chartFallback(canvasId); return null; }
+}
+
+function chartCardShell(container, id, title, hasData, headlineHtml, subtitle){
+  const div = document.createElement('div');
+  div.className = 'chart-card';
+  div.innerHTML = `
+    <div class="chart-card-head"><h3>${title}</h3>${hasData?`<button class="ghost-link" data-toggle="${id}">Tabel</button>`:''}</div>
+    ${subtitle ? `<div class="chart-card-sub">${subtitle}</div>` : ''}
+    ${headlineHtml ? `<div class="chart-headline">${headlineHtml}</div>` : ''}
+    <div class="chart-canvas-wrap${headlineHtml?' short':''}" id="wrap-${id}">${hasData?`<canvas id="${id}"></canvas>`:`<div class="empty-note">Belum ada data</div>`}</div>
+    <div class="chart-table" id="table-${id}" hidden></div>
+  `;
+  container.appendChild(div);
+  return div;
+}
+function statOnlyCard(container, title, valueHtml, subHtml){
+  const div = document.createElement('div');
+  div.className = 'chart-card stat-only-card';
+  div.innerHTML = `
+    <div class="chart-card-head"><h3>${title}</h3></div>
+    <div class="chart-headline" style="margin-bottom:2px;">${valueHtml}</div>
+    ${subHtml ? `<div style="font-size:11px;color:var(--text-muted)">${subHtml}</div>` : ''}
+  `;
+  container.appendChild(div);
+  return div;
+}
+function wireTableToggle(id, labels, values, valueLabel, opts){
+  opts = opts || {};
+  const btn = document.querySelector(`[data-toggle="${id}"]`);
+  const tableEl = document.getElementById('table-'+id);
+  const wrapEl = document.getElementById('wrap-'+id);
+  if (!btn) return;
+  // opts.acct: format akuntansi (angka biaya negatif dalam kurung &amp; merah) — dipakai khusus
+  // untuk tabel Laporan Laba Rugi, tabel lain tetap pakai fmtJuta biasa.
+  tableEl.innerHTML = `<table><thead><tr><th>Kategori</th><th>${valueLabel||'Nilai (Rp Juta)'}</th></tr></thead><tbody>${
+    labels.map((l,i)=>`<tr><td>${esc(l)}</td><td>${opts.acct ? fmtJutaAcctHtml(values[i]) : fmtJuta(values[i])}</td></tr>`).join('')
+  }</tbody></table>`;
+  btn.addEventListener('click', () => {
+    const show = tableEl.hidden;
+    tableEl.hidden = !show; wrapEl.hidden = show;
+    btn.textContent = show ? 'Grafik' : 'Tabel';
+  });
+}
+
+function barChart(canvasId, labels, values, colorOrColors, opts){
+  opts = opts || {};
+  const ctx = document.getElementById(canvasId);
+  const colors = Array.isArray(colorOrColors) ? colorOrColors : labels.map(()=>colorOrColors);
+  const textMuted = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
+  const textPrimary = getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim();
+  const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--grid').trim();
+  destroyChart(canvasId);
+  state.chartInstances[canvasId] = chartGuard(canvasId, () => new Chart(ctx, {
+    type:'bar',
+    data:{ labels, datasets:[{
+      data:values,
+      backgroundColor:(context) => barGradient(context.chart.ctx, context.chart.chartArea, colors[context.dataIndex % colors.length], !!opts.horizontal),
+      borderRadius:6, maxBarThickness:30, borderSkipped:false
+    }] },
+    options:{
+      indexAxis: opts.horizontal ? 'y' : 'x',
+      responsive:true, maintainAspectRatio:false,
+      // Sumbu nilai (angka Rp Juta) disembunyikan sepenuhnya karena nilainya sudah ditulis
+      // langsung di ujung setiap batang (lihat plugin valueLabels) — jadi tidak perlu penggaris
+      // angka + garis grid lagi, grafik jadi lebih ringkas dan tidak makan tempat.
+      layout:{ padding:{ top: opts.horizontal?4:18, right: opts.horizontal?52:8 } },
+      plugins:{
+        legend:{ display:false },
+        tooltip:{ callbacks:{ label:(c)=> ' ' + fmtJuta(c.parsed[opts.horizontal?'x':'y']) + ' Rp Juta' } },
+        valueLabels:{ labels: values.map(v=>fmtJuta(v)), mode: opts.horizontal?'bar-horizontal':'bar-vertical', color:textPrimary }
+      },
+      scales:{
+        x: opts.horizontal
+          ? { display:false, beginAtZero:true }
+          : { grid:{ display:false }, border:{ color:gridColor }, ticks:{ color:textMuted, font:{size:10.5, family:CHART_FONT_FAMILY} } },
+        y: opts.horizontal
+          ? { grid:{ display:false }, border:{ display:false }, ticks:{ color:textMuted, font:{size:10.5, family:CHART_FONT_FAMILY} } }
+          : { display:false, beginAtZero:true }
+      }
+    }
+  }));
+}
+function stackedSingleBar(canvasId, segments){ // [{label,value,color}]
+  const ctx = document.getElementById(canvasId);
+  destroyChart(canvasId);
+  state.chartInstances[canvasId] = chartGuard(canvasId, () => new Chart(ctx, {
+    type:'bar',
+    data:{ labels:['Biaya Langsung'], datasets: segments.map(s => ({ label:s.label, data:[s.value], backgroundColor:s.color, borderRadius:4, maxBarThickness:56 })) },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:true, position:'bottom', labels:{ color:'var(--text-secondary)', boxWidth:10, font:{size:11} } },
+        tooltip:{ callbacks:{ label:(c)=> ' ' + c.dataset.label + ': ' + fmtJuta(c.parsed.x) + ' Rp Juta' } } },
+      scales:{ x:{ stacked:true, grid:{ color:'var(--grid)' }, ticks:{ color:'var(--text-muted)', font:{size:10.5}, callback:(v)=>idNum.format(v/1e6) } },
+                y:{ stacked:true, grid:{ display:false }, ticks:{ display:false } } }
+    }
+  }));
+}
+function pieChart(canvasId, labels, values, colors){
+  const ctx = document.getElementById(canvasId);
+  destroyChart(canvasId);
+  const total = values.reduce((a,b)=>a+b,0);
+  const pctLabels = values.map(v => total>0 ? fmtPct(v/total,0) : '');
+  // Legend ditampilkan sendiri sebagai daftar HTML di sisi kanan donut (lihat donutLegendCard),
+  // jadi legend bawaan Chart.js dimatikan supaya tidak dobel.
+  state.chartInstances[canvasId] = chartGuard(canvasId, () => new Chart(ctx, {
+    type:'doughnut',
+    data:{ labels, datasets:[{
+      data:values,
+      backgroundColor:(context) => donutGradient(context.chart.ctx, context.chart.chartArea, colors[context.dataIndex % colors.length]),
+      borderWidth:0, hoverOffset:6
+    }] },
+    options:{
+      responsive:true, maintainAspectRatio:false, cutout:'66%',
+      plugins:{ legend:{ display:false },
+        tooltip:{ callbacks:{ label:(c)=> ' ' + c.label + ': ' + fmtJuta(c.parsed) + ' Rp Juta' } },
+        valueLabels:{ labels: pctLabels, mode:'doughnut' } }
+    }
+  }));
+}
+/* Kartu donut + legend daftar (mirip gaya "Komposisi Penagihan/Outstanding"): donut kecil di kiri,
+   daftar kategori dengan warna, nilai, dan persentase di kanan — tetap terbaca meski Chart.js gagal dimuat. */
+function donutLegendCard(container, id, title, subtitle, pairs, colors){
+  const hasData = pairs.length > 0 && pairs.some(x => x.v > 0);
+  const total = pairs.reduce((a,x) => a + x.v, 0);
+  const div = document.createElement('div');
+  div.className = 'chart-card chart-card-donut';
+  div.innerHTML = `
+    <div class="chart-card-head"><h3>${title}</h3>${hasData?`<button class="ghost-link" data-toggle="${id}">Tabel</button>`:''}</div>
+    ${subtitle ? `<div class="chart-card-sub">${subtitle}</div>` : ''}
+    <div class="chart-headline">${fmtJuta(total)}<span class="unit">Rp Juta</span></div>
+    ${hasData ? `
+    <div class="donut-layout">
+      <div class="donut-canvas-wrap" id="wrap-${id}">
+        <canvas id="${id}"></canvas>
+        <div class="donut-center"><div class="donut-center-val">${esc(fmtCompactRp(total))}</div></div>
+      </div>
+      <ul class="donut-legend">${pairs.map((x,i) => `<li><span class="dot" style="background:${colors[i % colors.length]}"></span><span class="nm" title="${esc(x.l)}">${esc(x.l)}</span><span class="val">${fmtJuta(x.v)}</span><span class="pct">${total>0?fmtPct(x.v/total,0):'-'}</span></li>`).join('')}</ul>
+    </div>` : `<div class="empty-note">Belum ada data</div>`}
+    <div class="chart-table" id="table-${id}" hidden></div>
+  `;
+  container.appendChild(div);
+  if (hasData){
+    pieChart(id, pairs.map(x=>x.l), pairs.map(x=>x.v), pairs.map((_,i)=>colors[i % colors.length]));
+    wireTableToggle(id, pairs.map(x=>x.l), pairs.map(x=>x.v));
+  }
+  return div;
+}
+function waterfallChart(canvasId, steps, opts){ // steps: [{label, delta, isTotal}]
+  opts = opts || {};
+  const ctx = document.getElementById(canvasId);
+  destroyChart(canvasId);
+  const good = statusColor('good'), critical = statusColor('critical');
+  const S = seriesColors();
+  const textMuted = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
+  const textPrimary = getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim();
+  const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--grid').trim();
+  let cum = 0;
+  const data = [], colors = [];
+  steps.forEach(s => {
+    if (s.isTotal){ data.push([0, s.delta]); colors.push(S[0]); cum = s.delta; }
+    else { const start = cum, end = cum + s.delta; data.push([Math.min(start,end), Math.max(start,end)]); colors.push(s.delta >= 0 ? good : critical); cum = end; }
+  });
+  // Langkah biaya (non-total, delta negatif) memakai format akuntansi "(1.234)" — plugin
+  // valueLabels otomatis mewarnainya merah karena mendeteksi label diapit tanda kurung.
+  const stepLabels = steps.map(s => s.isTotal ? fmtJuta(s.delta) : (s.delta>=0 ? ('+'+fmtJuta(s.delta)) : fmtJutaAcct(s.delta)));
+  // Bar "ke samping" (horizontal): sumbu kategori jadi Y, sumbu nilai jadi X — dibuat opsional
+  // lewat opts.horizontal supaya grafik lain yang masih memakai orientasi vertikal tidak berubah.
+  state.chartInstances[canvasId] = chartGuard(canvasId, () => new Chart(ctx, {
+    type:'bar',
+    data:{ labels: steps.map(s=>s.label), datasets:[{
+      data,
+      backgroundColor:(context) => barGradient(context.chart.ctx, context.chart.chartArea, colors[context.dataIndex], !!opts.horizontal),
+      borderRadius:6, maxBarThickness:opts.horizontal?26:46, borderSkipped:false
+    }] },
+    options:{
+      indexAxis: opts.horizontal ? 'y' : 'x',
+      responsive:true, maintainAspectRatio:false,
+      layout:{ padding: opts.horizontal ? { right:54, top:2 } : { top:16 } },
+      plugins:{ legend:{ display:false },
+        tooltip:{ callbacks:{ label:(c)=>{ const s = steps[c.dataIndex]; return ' ' + stepLabels[c.dataIndex] + ' Rp Juta'; } } },
+        valueLabels:{ labels: stepLabels, mode: opts.horizontal?'bar-horizontal':'bar-vertical', color:textPrimary } },
+      scales: opts.horizontal ? {
+        x:{ display:false }, // nilai sudah ditulis di ujung tiap batang, sumbu angka tidak perlu ditampilkan
+        y:{ grid:{ display:false }, border:{ display:false }, ticks:{ color:textMuted, font:{size:10.5, family:CHART_FONT_FAMILY} } }
+      } : {
+        x:{ grid:{ display:false }, ticks:{ color:textMuted, font:{size:10.5, family:CHART_FONT_FAMILY} } },
+        y:{ display:false } // nilai sudah ditulis di atas tiap batang, sumbu angka tidak perlu ditampilkan
+      }
+    }
+  }));
+}
+
+function renderCharts(p, tax){
+  // Kolom Investasi Ventura dan Piutang+Utang Ventura sekarang jadi 2 kolom TERPISAH di dalam
+  // .quad-row (sejajar dengan kartu Hutang Usaha & Pajak dan Cash In), bukan ditumpuk dalam satu
+  // kolom seperti sebelumnya — mengikuti tata letak "1 baris 4 kolom" pada referensi.
+  const venturaInvest = document.getElementById('venturaInvestCol'); venturaInvest.innerHTML='';
+  const venturaPiutang = document.getElementById('venturaPiutangCol'); venturaPiutang.innerHTML='';
+  // Laporan Laba Rugi ditukar posisi dengan Hutang Usaha & Pajak: sekarang Laporan Laba Rugi
+  // ada di baris "Rencana Cash In & Posisi Ventura Bersama" (kolom #labaRugiCol), sedangkan
+  // Hutang Usaha & Pajak pindah ke grid #chartsGridTop (baris "Biaya, Hutang Usaha & Pajak &
+  // Likuiditas") menggantikan posisi Laporan Laba Rugi yang lama.
+  const labaRugiCol = document.getElementById('labaRugiCol'); labaRugiCol.innerHTML='';
+  // Baris "Biaya, Hutang Usaha & Pajak & Likuiditas" digabung jadi SATU grid (dulu dua section
+  // terpisah: chartsGridTop & chartsGridMid) — semua 5 kartu masuk ke #chartsGridTop.
+  const top = document.getElementById('chartsGridTop'); top.innerHTML='';
+  const bottom = document.getElementById('chartsGridBottom'); bottom.innerHTML='';
+  const S = seriesColors();
+  const SEQ = seqColors(); // ramp biru monokrom — dipakai khusus untuk donut "bagian dari keseluruhan" (item 1: kurangi warna)
+  const headline = (v) => `${fmtJuta(v)}<span class="unit">Rp Juta</span>`;
+
+  /* --- Posisi Ventura Bersama: Investasi & Piutang/Utang jadi 2 kolom sejajar dengan Hutang
+     Usaha & Pajak dan Cash In di baris yang sama (lihat #venturaInvestCol / #venturaPiutangCol
+     pada bagian HTML). Penjualan & Laba TIDAK lagi di sini — sudah dipindah jadi kartu KPI di
+     bagian atas (lihat renderKpis). --- */
+
+  /* 1. Investasi Ventura Bersama — donut + legend */
+  const invLabels = ['Titipan','Pinjaman','Reimburse','PMN','Laba Belum Disetor'];
+  const invValues = [p.invTitipan, p.invPinjaman, p.invReimburse, p.invPmn, p.labaBelumDisetor];
+  const invPairs = invLabels.map((l,i)=>({l, v:invValues[i]})).filter(x=>x.v > 0);
+  donutLegendCard(venturaInvest, 'chartInvestasi', 'Investasi Ventura Bersama',
+    'Dana yang ditanam ke rekening bersama JO: titipan, pinjaman, reimburse, PMN, dan laba yang belum disetor.',
+    invPairs, SEQ);
+
+  /* 2. Piutang Ventura Bersama — aging bar */
+  chartCardShell(venturaPiutang, 'chartAgingVentura', 'Piutang Ventura Bersama', true, headline(p.piutVentTotal),
+    'Piutang ke rekening bersama JO menurut umur tunggakan.');
+  barChart('chartAgingVentura', ['1-2 Bulan','3-6 Bulan','>6 Bulan'], [p.piutVent12,p.piutVent36,p.piutVent6], S[0]);
+  wireTableToggle('chartAgingVentura', ['1-2 Bulan','3-6 Bulan','>6 Bulan'], [p.piutVent12,p.piutVent36,p.piutVent6]);
+
+  /* 3. Utang Ventura — stat only, ditaruh di bawah Piutang Ventura di kolom yang sama */
+  statOnlyCard(venturaPiutang, 'Utang Ventura', headline(p.utangVentura), 'Kewajiban proyek ke rekening bersama JO.');
+
+  /* --- Biaya & Hutang Usaha/Pajak --- */
+
+  /* 4. Biaya Langsung — komposisi (donut + legend) */
+  const biayaPairs = [
+    { l:'Material', v:p.biayaMaterial },
+    { l:'Upah', v:p.biayaUpah },
+    { l:'Alat', v:p.biayaAlat },
+    { l:'Subkont', v:p.biayaSubkont },
+  ].filter(x=>x.v > 0);
+  donutLegendCard(top, 'chartBiaya', 'Komposisi Biaya Langsung',
+    'Sebaran biaya langsung proyek menurut jenisnya: material, upah, alat, dan subkontraktor.',
+    biayaPairs, SEQ);
+
+  /* 4b. Hutang Usaha & Pajak — stat only, menggantikan posisi Laporan Laba Rugi yang lama
+     (ditukar sesuai permintaan: Hutang Usaha & Pajak <-> Laporan Laba Rugi). */
+  const totalHutang = p.hutangUsaha + p.hutangPajak;
+  statOnlyCard(top, 'Hutang Usaha &amp; Pajak', headline(totalHutang),
+    `Usaha ${fmtJuta(p.hutangUsaha)} &middot; Pajak ${fmtJuta(p.hutangPajak)}`);
+
+  /* 5. Laporan Laba Rugi — Penjualan → BL (Biaya Langsung) → BTL (Biaya Tidak Langsung) → Laba,
+     digambar sebagai bar chart HORIZONTAL ("ke samping") sesuai permintaan, bukan waterfall
+     vertikal seperti sebelumnya — tetap floating-bar supaya alur naik/turunnya tetap terbaca.
+     Label "Biaya Langsung"/"Biaya Tidak Langsung" dipersingkat jadi "BL"/"BTL" di grafik & tabel
+     (nama lengkapnya tetap dijelaskan di catatan kaki di bawah grafik).
+     Sekarang ditaruh di baris "Rencana Cash In & Posisi Ventura Bersama" (kolom #labaRugiCol),
+     menggantikan posisi Hutang Usaha & Pajak yang lama. */
+  const biayaTidakLangsung = p.penjualan - p.totalBiaya - p.labaRealisasi;
+  const lrSteps = [
+    { label:'Penjualan', delta:p.penjualan, isTotal:true },
+    { label:'BL', delta:-p.totalBiaya, isTotal:false },
+    { label:'BTL*', delta:-biayaTidakLangsung, isTotal:false },
+    { label:'Laba', delta:p.labaRealisasi, isTotal:true },
+  ];
+  const lrHasData = p.penjualan !== 0 || p.totalBiaya !== 0 || p.labaRealisasi !== 0;
+  chartCardShell(labaRugiCol, 'chartLabaRugi', 'Laporan Laba Rugi', lrHasData, headline(p.labaRealisasi) + '<span class="sub">Laba</span>',
+    'Alur dari penjualan dikurangi biaya langsung (BL) dan biaya tidak langsung (BTL) sampai menjadi laba.');
+  if (lrHasData){
+    waterfallChart('chartLabaRugi', lrSteps, { horizontal:true });
+    wireTableToggle('chartLabaRugi', lrSteps.map(s=>s.label), lrSteps.map(s=>s.delta), null, {acct:true});
+    // Pakai wrap-chartLabaRugi (bukan canvas-nya langsung) sebagai jangkar, karena kalau Chart.js
+    // gagal dimuat, chartGuard/chartFallback mengganti isi wrap tsb (termasuk elemen canvas-nya)
+    // dengan pesan "grafik tidak dapat dimuat" — canvas-nya sendiri jadi tidak ada lagi di DOM.
+    const wrapEl = document.getElementById('wrap-chartLabaRugi');
+    const cardEl = wrapEl ? wrapEl.closest('.chart-card') : null;
+    if (cardEl){
+      cardEl.insertAdjacentHTML('beforeend',
+        `<div style="font-size:10px;color:var(--text-muted);margin-top:4px;">BL = Biaya Langsung. *BTL = Biaya Tidak Langsung, dihitung otomatis: Penjualan − BL − Laba (estimasi, bukan dari kolom terpisah).</div>`);
+    }
+  }
+
+  /* --- Kas, piutang & aging (sekarang menyatu di grid #chartsGridTop yang sama dengan
+     Biaya/Laporan Laba Rugi di atas, bukan section/grid terpisah lagi) --- */
+
+  /* 8. Kas & Bank vs Hutang & BAD (totalHutang sudah dihitung di atas untuk kartu Hutang Usaha & Pajak) */
+  const totalKasBank = p.kas + p.bankTmp + p.bankKm;
+  chartCardShell(top, 'chartKasHutang', 'Kas &amp; Bank vs Hutang &amp; BAD', true, null,
+    'Perbandingan posisi likuiditas (kas &amp; bank) terhadap kewajiban (hutang &amp; BAD/beban akan datang).');
+  barChart('chartKasHutang', ['Kas & Bank','Hutang','BAD'], [totalKasBank, totalHutang, p.bad], [S[2],S[7],S[3]]);
+  wireTableToggle('chartKasHutang', ['Kas & Bank','Hutang','BAD'], [totalKasBank, totalHutang, p.bad]);
+
+  /* 9. Aging Piutang Usaha */
+  chartCardShell(top, 'chartAgingPU', 'Aging Piutang Usaha', true, headline(p.piutangUsaha),
+    'Piutang usaha ke pemberi kerja menurut umur tunggakan.');
+  barChart('chartAgingPU', ['1-2 Bulan','3-6 Bulan','>6 Bulan'], [p.agingPu12,p.agingPu36,p.agingPu6], S[0]);
+  wireTableToggle('chartAgingPU', ['1-2 Bulan','3-6 Bulan','>6 Bulan'], [p.agingPu12,p.agingPu36,p.agingPu6]);
+
+  /* 10. Aging Tagihan Bruto */
+  chartCardShell(top, 'chartAgingTB', 'Aging Tagihan Bruto', true, headline(p.tagbrut),
+    'Tagihan bruto yang belum ditagihkan/dibayar menurut umur.');
+  barChart('chartAgingTB', ['1-2 Bulan','3-6 Bulan','>6 Bulan'], [p.agingTb12,p.agingTb36,p.agingTb6], S[0]);
+  wireTableToggle('chartAgingTB', ['1-2 Bulan','3-6 Bulan','>6 Bulan'], [p.agingTb12,p.agingTb36,p.agingTb6]);
+
+  /* --- Pajak / PPN --- */
+
+  /* 11. Nilai PPN M by year (Monitoring Pajak) */
+  const yearOrder = ['<2024','2024','2025','2026'];
+  const extraYears = Array.from(tax.yearMap.keys()).filter(y=>!yearOrder.includes(y));
+  const years = yearOrder.concat(extraYears).filter(y => tax.yearMap.has(y));
+  const yearVals = years.map(y => tax.yearMap.get(y) || 0);
+  const totalPpnRestitusi = yearVals.reduce((a,b)=>a+b,0);
+  const denom = (p.totalBiaya - p.biayaUpah);
+  const totalRestitusiStages = tax.stageBuckets.reduce((a,b)=>a+b.value,0);
+  const pctPpnBiaya = denom > 0 ? (totalRestitusiStages / denom) : null;
+  chartCardShell(bottom, 'chartPpnYear', 'Nilai PPN M (Monitoring Pajak)', years.length>0,
+    headline(p.ppnM) + (pctPpnBiaya!==null ? `<span class="sub">% PPN thd Biaya: ${fmtPct(pctPpnBiaya,1)}</span>` : ''),
+    'Nilai PPN masukan yang dimonitor, dirinci per tahun perolehan.');
+  if (years.length){
+    barChart('chartPpnYear', years, yearVals, S[0], { horizontal:true });
+    wireTableToggle('chartPpnYear', years, yearVals);
+  }
+
+  /* 12. Posisi Restitusi PPN — ordinal sequential */
+  const seq = seqColors();
+  const seqFull = [seq[0],seq[0],seq[1],seq[2],seq[3],seq[4]];
+  const stageHasData = tax.stageBuckets.some(s=>s.value>0);
+  chartCardShell(bottom, 'chartRestitusi', 'Posisi Restitusi PPN', stageHasData, headline(totalRestitusiStages),
+    'Tahapan proses pengajuan restitusi PPN, dari belum diajukan sampai sudah cair.');
+  if (stageHasData){
+    barChart('chartRestitusi', tax.stageBuckets.map(s=>s.label), tax.stageBuckets.map(s=>s.value), seqFull);
+    wireTableToggle('chartRestitusi', tax.stageBuckets.map(s=>s.label), tax.stageBuckets.map(s=>s.value));
+  }
+}
+
+/* ---------- Raw data modal ---------- */
+function openRawModal(p){
+  const body = document.getElementById('rawModalBody');
+  const rows = Object.entries(p).filter(([k])=>k!=='ci' && k!=='id');
+  body.innerHTML = `<table class="data-table">${rows.map(([k,v])=>{
+    let val = v;
+    if (k==='tglMulai'||k==='tglPho'||k==='tglFho') val = fmtDate(v);
+    else if (typeof v === 'number') val = (Math.abs(v) < 1000 && !Number.isInteger(v)) ? v.toLocaleString('id-ID',{maximumFractionDigits:4}) : idNum.format(Math.round(v));
+    return `<tr><td style="text-transform:capitalize">${esc(k)}</td><td>${esc(val)}</td></tr>`;
+  }).join('')}</table>`;
+  document.getElementById('rawModalOverlay').hidden = false;
+}
+
+/* Unduh data mentah proyek yang sedang dipilih sebagai file CSV — dipicu dari tombol unduh (↓)
+   di topbar. Memakai data yang sama dengan modal "Data Mentah Proyek". */
+function downloadProjectCsv(p){
+  const rows = Object.entries(p).filter(([k])=>k!=='ci' && k!=='id');
+  const csvLine = (arr) => arr.map(v => `"${String(v===null||v===undefined?'':v).replace(/"/g,'""')}"`).join(',');
+  const lines = [csvLine(['Kategori','Nilai'])];
+  rows.forEach(([k,v]) => {
+    let val = v;
+    if (k==='tglMulai'||k==='tglPho'||k==='tglFho') val = fmtDate(v);
+    lines.push(csvLine([k, val]));
+  });
+  const blob = new Blob(['﻿' + lines.join('\r\n')], { type:'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'data-proyek-' + (p.profitCentre || p.nama || 'proyek').replace(/[^a-z0-9-]+/gi,'_') + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/* ---------- Settings panel wiring ---------- */
+function fillSettingsForm(){
+  document.getElementById('cfgSpreadsheetId').value = CONFIG.spreadsheetId;
+  document.getElementById('cfgReportMonth').value = CONFIG.reportMonth || '';
+  document.getElementById('cfgDataStartRow').value = CONFIG.dataStartRow;
+  const byKey = k => CONFIG.divisions.find(d=>d.key===k) || {masterSheet:'',taxSheet:''};
+  document.getElementById('cfgEpccMaster').value = byKey('EPCC').masterSheet;
+  document.getElementById('cfgEpccTax').value = byKey('EPCC').taxSheet;
+  document.getElementById('cfgInfraMaster').value = byKey('INFRA').masterSheet;
+  document.getElementById('cfgInfraTax').value = byKey('INFRA').taxSheet;
+  document.getElementById('cfgBuildingMaster').value = byKey('BUILDING').masterSheet;
+  document.getElementById('cfgBuildingTax').value = byKey('BUILDING').taxSheet;
+  document.getElementById('cfgAppsScriptUrl').value = CONFIG.appsScriptUrl || '';
+  document.getElementById('cfgAppsScriptSecret').value = CONFIG.appsScriptSecret || '';
+}
+function readSettingsForm(){
+  CONFIG.spreadsheetId = document.getElementById('cfgSpreadsheetId').value.trim();
+  CONFIG.reportMonth = document.getElementById('cfgReportMonth').value;
+  const startRowVal = Number(document.getElementById('cfgDataStartRow').value);
+  CONFIG.dataStartRow = (startRowVal && startRowVal > 0) ? Math.round(startRowVal) : DEFAULT_CONFIG.dataStartRow;
+  CONFIG.divisions = [
+    { key:'EPCC', label:'EPCC', masterSheet:document.getElementById('cfgEpccMaster').value.trim(), taxSheet:document.getElementById('cfgEpccTax').value.trim() },
+    { key:'INFRA', label:'Infra', masterSheet:document.getElementById('cfgInfraMaster').value.trim(), taxSheet:document.getElementById('cfgInfraTax').value.trim() },
+    { key:'BUILDING', label:'Building', masterSheet:document.getElementById('cfgBuildingMaster').value.trim(), taxSheet:document.getElementById('cfgBuildingTax').value.trim() },
+  ].filter(d => d.masterSheet);
+  CONFIG.appsScriptUrl = document.getElementById('cfgAppsScriptUrl').value.trim();
+  CONFIG.appsScriptSecret = document.getElementById('cfgAppsScriptSecret').value.trim();
+}
+
+/* ---------- Event wiring ---------- */
+document.getElementById('divisiSelect').addEventListener('change', () => {
+  const pool = projectPool();
+  if (pool.length && !pool.some(p => p.id === state.selectedId)){
+    selectProjectSilently(pool[0]);
+  }
+  renderAll();
+  renderTopState();
+});
+document.getElementById('proyekInput').addEventListener('focus', (e) => openProyekPanel(e.target.value));
+document.getElementById('proyekInput').addEventListener('input', (e) => openProyekPanel(e.target.value));
+document.getElementById('proyekInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeProyekPanel();
+  if (e.key === 'Enter'){
+    const pool = projectPool();
+    const q = e.target.value.trim().toLowerCase();
+    const match = pool.find(p => projectLabel(p).toLowerCase() === q) ||
+                  pool.find(p => (p.nama+' '+(p.profitCentre||'')).toLowerCase().includes(q));
+    if (match) selectProject(match);
+  }
+});
+document.getElementById('proyekToggle').addEventListener('click', () => {
+  const panel = document.getElementById('proyekPanel');
+  if (panel.hidden) openProyekPanel(''); else closeProyekPanel();
+});
+document.addEventListener('click', (e) => {
+  if (!document.getElementById('proyekComboWrap').contains(e.target)) closeProyekPanel();
+});
+
+document.getElementById('themeToggle').addEventListener('click', () => {
+  state.theme = state.theme === 'light' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', state.theme);
+  if (currentProject()) renderAll();
+});
+document.getElementById('refreshBtn').addEventListener('click', () => loadAll());
+document.getElementById('retryBtn').addEventListener('click', () => loadAll());
+document.getElementById('downloadBtn').addEventListener('click', () => {
+  const p = currentProject();
+  if (p) downloadProjectCsv(p);
+});
+document.getElementById('expandBtn').addEventListener('click', () => {
+  if (!document.fullscreenElement){ document.documentElement.requestFullscreen().catch(()=>{}); }
+  else { document.exitFullscreen().catch(()=>{}); }
+});
+
+document.getElementById('settingsBtn').addEventListener('click', () => { fillSettingsForm(); document.getElementById('settingsOverlay').hidden = false; });
+document.getElementById('openSettingsFromError').addEventListener('click', () => { fillSettingsForm(); document.getElementById('settingsOverlay').hidden = false; });
+document.getElementById('closeSettingsBtn').addEventListener('click', () => { document.getElementById('settingsOverlay').hidden = true; });
+document.getElementById('settingsOverlay').addEventListener('click', (e) => { if (e.target.id==='settingsOverlay') e.currentTarget.hidden = true; });
+document.getElementById('applySettingsBtn').addEventListener('click', () => {
+  readSettingsForm();
+  document.getElementById('settingsOverlay').hidden = true;
+  state.selectedId = null;
+  loadAll();
+});
+document.getElementById('testConnectionBtn').addEventListener('click', async () => {
+  readSettingsForm();
+  const resEl = document.getElementById('testResult');
+  resEl.hidden = false; resEl.textContent = 'Menguji koneksi…';
+  const lines = [];
+  for (const div of CONFIG.divisions){
+    try{
+      const t = await fetchGvizTable(div.masterSheet);
+      let n = 0;
+      const startIdx = findDataStartIndex(t.rows || []);
+      for (let i = startIdx; i < (t.rows||[]).length; i++){
+        const noVal = cellAt(t.rows[i], COL.NO);
+        if (noVal !== null && noVal !== '' && !isNaN(Number(noVal))) n++;
+      }
+      lines.push('✓ ' + div.label + ': ' + n + ' proyek ditemukan di sheet "' + div.masterSheet + '"');
+    }catch(e){
+      lines.push('✗ ' + div.label + ': ' + e.message);
+    }
+  }
+  resEl.textContent = lines.join('\n');
+});
+
+document.getElementById('closeRawModalBtn').addEventListener('click', () => { document.getElementById('rawModalOverlay').hidden = true; });
+document.getElementById('rawModalOverlay').addEventListener('click', (e) => { if (e.target.id==='rawModalOverlay') e.currentTarget.hidden = true; });
+
+/* ---------- Gerbang akses ---------- */
+function unlockAccessGate(){
+  document.getElementById('accessGateOverlay').style.display = 'none';
+  loadAll();
+}
+function isAccessGateStored(){
+  try{ return localStorage.getItem('jo_dash_gate_ok') === btoa(unescape(encodeURIComponent(ACCESS_GATE.password))); }
+  catch(e){ return false; }
+}
+function initAccessGate(){
+  const overlay = document.getElementById('accessGateOverlay');
+  if (!ACCESS_GATE.enabled || isAccessGateStored()){
+    overlay.style.display = 'none';
+    loadAll();
+    return;
+  }
+  overlay.style.display = 'flex';
+  const input = document.getElementById('gatePasswordInput');
+  const errEl = document.getElementById('gateError');
+  const submit = () => {
+    if (input.value === ACCESS_GATE.password){
+      if (document.getElementById('gateRememberChk').checked){
+        try{ localStorage.setItem('jo_dash_gate_ok', btoa(unescape(encodeURIComponent(ACCESS_GATE.password)))); }catch(e){}
+      }
+      errEl.textContent = '';
+      unlockAccessGate();
+    } else {
+      errEl.textContent = 'Kata sandi salah, coba lagi.';
+      input.value = '';
+      input.focus();
+    }
+  };
+  document.getElementById('gateSubmitBtn').addEventListener('click', submit);
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+  input.focus();
+}
+
+/* ---------- Init ---------- */
+initAccessGate();
+</script>
+</body>
+</html>
