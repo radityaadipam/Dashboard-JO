@@ -333,8 +333,11 @@ section{margin-bottom:8px;}
 .chart-headline .unit{font-size:9.5px; font-weight:600; color:var(--text-muted); margin-left:5px;}
 .chart-headline .sub{font-size:10px; font-weight:600; color:var(--text-secondary); margin-left:8px;}
 .ghost-link{font-size:10px; color:var(--brand-accent); background:none; border:none; cursor:pointer; font-weight:600; padding:2px 4px;}
-.chart-canvas-wrap{position:relative; height:98px;}
+.chart-canvas-wrap{position:relative; height:98px; overflow:hidden;}
 .chart-canvas-wrap.short{height:78px;}
+/* Canvas dipaksa mengikuti ukuran wrapper-nya (bukan ukuran bawaan canvas 300x150) supaya tidak
+   meluber ke kartu sebelah saat kolomnya sempit, mis. saat banyak kartu disejajarkan 1 baris. */
+.chart-canvas-wrap canvas{width:100% !important; height:100% !important; display:block;}
 .stat-only-card{display:flex; flex-direction:column; justify-content:center; min-height:68px;}
 .chart-table{margin-top:8px; font-size:12px;}
 .chart-table table{width:100%; border-collapse:collapse;}
@@ -401,8 +404,12 @@ table.data-table tr.total-row td{font-weight:800; border-top:2px solid var(--bas
 .biaya-hutang-row .stack-col > :last-child{flex:1 1 auto; display:flex; flex-direction:column; justify-content:center;}
 /* Kolom kanan (#hutangUsahaCol) menampung Hutang Usaha & Pajak + Kas & Bank vs Hutang & BAD +
    Aging Piutang Usaha + Aging Tagihan Bruto, sejajar di samping Komposisi Biaya Langsung. */
-.biaya-hutang-row #hutangUsahaCol{grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); align-content:start;}
+/* Selalu 1 baris (4 kolom sejajar) selama masih cukup lebar, supaya "Aging Tagihan Bruto" tidak
+   turun sendirian ke baris kedua — baru pecah jadi 2 kolom kalau ruangnya benar-benar sempit. */
+.biaya-hutang-row #hutangUsahaCol{grid-template-columns:repeat(4,minmax(0,1fr)); align-content:start;}
+@media (max-width:1150px){.biaya-hutang-row #hutangUsahaCol{grid-template-columns:repeat(2,minmax(0,1fr));}}
 @media (max-width:720px){.biaya-hutang-row{grid-template-columns:1fr;}}
+@media (max-width:480px){.biaya-hutang-row #hutangUsahaCol{grid-template-columns:minmax(0,1fr);}}
 
 .masalah-card{border-left:4px solid var(--warning);}
 .masalah-card p{margin:0; font-size:13px; line-height:1.6; color:var(--text-primary);}
