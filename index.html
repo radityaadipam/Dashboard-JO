@@ -357,7 +357,7 @@ section{margin-bottom:8px;}
 @media (max-width:520px){.donut-layout{flex-direction:column; align-items:stretch;}.donut-canvas-wrap{width:100%;height:150px;margin:0 auto;}}
 /* Kartu donut (Investasi Ventura Bersama, Komposisi Biaya Langsung): ukuran chart dibesarkan
    lagi supaya kelihatan jelas, tapi lebar KARTU-nya sendiri diatur ukuran "medium" lewat
-   grid-template-columns pada kontainernya masing-masing (lihat #chartsGridTop di bawah),
+   grid-template-columns pada kontainernya masing-masing (lihat .biaya-hutang-row di bawah),
    bukan dengan melebarkan sampai 2 kolom penuh seperti versi sebelumnya. */
 
 /* tables */
@@ -399,6 +399,9 @@ table.data-table tr.total-row td{font-weight:800; border-top:2px solid var(--bas
 .biaya-hutang-row{display:grid; grid-template-columns:minmax(300px,420px) minmax(220px,1fr); gap:10px; align-items:stretch; margin-bottom:10px;}
 .biaya-hutang-row .stack-col{display:flex; flex-direction:column; min-width:0;}
 .biaya-hutang-row .stack-col > :last-child{flex:1 1 auto; display:flex; flex-direction:column; justify-content:center;}
+/* Kolom kanan (#hutangUsahaCol) menampung Hutang Usaha & Pajak + Kas & Bank vs Hutang & BAD +
+   Aging Piutang Usaha + Aging Tagihan Bruto, sejajar di samping Komposisi Biaya Langsung. */
+.biaya-hutang-row #hutangUsahaCol{grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); align-content:start;}
 @media (max-width:720px){.biaya-hutang-row{grid-template-columns:1fr;}}
 
 .masalah-card{border-left:4px solid var(--warning);}
@@ -609,9 +612,8 @@ footer .meta{display:block; font-size:9px; font-weight:500; font-style:normal; c
         <div class="section-head"><div class="bar"></div><div><h2>Biaya, Hutang Usaha &amp; Pajak &amp; Likuiditas</h2><p>Komposisi biaya langsung, kewajiban usaha &amp; pajak, posisi kas terhadap kewajiban, serta umur piutang usaha dan tagihan bruto yang belum tertagih.</p></div></div>
         <div class="biaya-hutang-row">
           <div class="stack-col" id="biayaLangsungCol"></div>
-          <div class="stack-col" id="hutangUsahaCol"></div>
+          <div class="charts-grid" id="hutangUsahaCol"></div>
         </div>
-        <div class="charts-grid" id="chartsGridTop"></div>
       </section>
 
       <section>
@@ -1772,15 +1774,15 @@ function renderCharts(p, tax){
   const venturaPiutang = document.getElementById('venturaPiutangCol'); venturaPiutang.innerHTML='';
   // Laporan Laba Rugi ditukar posisi dengan Hutang Usaha & Pajak: sekarang Laporan Laba Rugi
   // ada di baris "Rencana Cash In & Posisi Ventura Bersama" (kolom #labaRugiCol), sedangkan
-  // Hutang Usaha & Pajak pindah ke grid #chartsGridTop (baris "Biaya, Hutang Usaha & Pajak &
+  // Hutang Usaha & Pajak pindah ke kolom #hutangUsahaCol (baris "Biaya, Hutang Usaha & Pajak &
   // Likuiditas") menggantikan posisi Laporan Laba Rugi yang lama.
   const labaRugiCol = document.getElementById('labaRugiCol'); labaRugiCol.innerHTML='';
-  // Baris "Biaya, Hutang Usaha & Pajak & Likuiditas" digabung jadi SATU grid (dulu dua section
-  // terpisah: chartsGridTop & chartsGridMid) — semua kartu sisa (Kas & Bank, Aging Piutang Usaha,
-  // Aging Tagihan Bruto) masuk ke #chartsGridTop. Komposisi Biaya Langsung & Hutang Usaha & Pajak
-  // ditaruh di baris tersendiri (.biaya-hutang-row) dengan rasio lebar 1.7:0.9 supaya label
-  // legend donut (Material/Upah/Alat/Subkont) tidak terpotong seperti sebelumnya.
-  const top = document.getElementById('chartsGridTop'); top.innerHTML='';
+  // Baris "Biaya, Hutang Usaha & Pajak & Likuiditas" (.biaya-hutang-row): kolom kiri
+  // (#biayaLangsungCol) berisi Komposisi Biaya Langsung saja, lebarnya dipatok tetap seukuran
+  // kartu Rencana Cash In di atasnya. Kolom kanan (#hutangUsahaCol) sekarang jadi grid tersendiri
+  // yang menampung Hutang Usaha & Pajak, Kas & Bank vs Hutang & BAD, Aging Piutang Usaha, dan
+  // Aging Tagihan Bruto sejajar di sampingnya (dulu 3 kartu terakhir ada di grid #chartsGridTop
+  // terpisah di baris berikutnya — sekarang dinaikkan ke sini sesuai permintaan).
   const biayaLangsungCol = document.getElementById('biayaLangsungCol'); biayaLangsungCol.innerHTML='';
   const hutangUsahaCol = document.getElementById('hutangUsahaCol'); hutangUsahaCol.innerHTML='';
   const bottom = document.getElementById('chartsGridBottom'); bottom.innerHTML='';
@@ -1860,24 +1862,24 @@ function renderCharts(p, tax){
     }
   }
 
-  /* --- Kas, piutang & aging (sekarang menyatu di grid #chartsGridTop yang sama dengan
-     Biaya/Laporan Laba Rugi di atas, bukan section/grid terpisah lagi) --- */
+  /* --- Kas, piutang & aging (sekarang menyatu di #hutangUsahaCol, sejajar dengan Hutang Usaha
+     & Pajak di samping Komposisi Biaya Langsung — bukan section/grid terpisah lagi) --- */
 
   /* 8. Kas & Bank vs Hutang & BAD (totalHutang sudah dihitung di atas untuk kartu Hutang Usaha & Pajak) */
   const totalKasBank = p.kas + p.bankTmp + p.bankKm;
-  chartCardShell(top, 'chartKasHutang', 'Kas &amp; Bank vs Hutang &amp; BAD', true, null,
+  chartCardShell(hutangUsahaCol, 'chartKasHutang', 'Kas &amp; Bank vs Hutang &amp; BAD', true, null,
     'Perbandingan posisi likuiditas (kas &amp; bank) terhadap kewajiban (hutang &amp; BAD/beban akan datang).');
   barChart('chartKasHutang', ['Kas & Bank','Hutang','BAD'], [totalKasBank, totalHutang, p.bad], [S[2],S[7],S[3]]);
   wireTableToggle('chartKasHutang', ['Kas & Bank','Hutang','BAD'], [totalKasBank, totalHutang, p.bad]);
 
   /* 9. Aging Piutang Usaha */
-  chartCardShell(top, 'chartAgingPU', 'Aging Piutang Usaha', true, headline(p.piutangUsaha),
+  chartCardShell(hutangUsahaCol, 'chartAgingPU', 'Aging Piutang Usaha', true, headline(p.piutangUsaha),
     'Piutang usaha ke pemberi kerja menurut umur tunggakan.');
   barChart('chartAgingPU', ['1-2 Bulan','3-6 Bulan','>6 Bulan'], [p.agingPu12,p.agingPu36,p.agingPu6], S[0]);
   wireTableToggle('chartAgingPU', ['1-2 Bulan','3-6 Bulan','>6 Bulan'], [p.agingPu12,p.agingPu36,p.agingPu6]);
 
   /* 10. Aging Tagihan Bruto */
-  chartCardShell(top, 'chartAgingTB', 'Aging Tagihan Bruto', true, headline(p.tagbrut),
+  chartCardShell(hutangUsahaCol, 'chartAgingTB', 'Aging Tagihan Bruto', true, headline(p.tagbrut),
     'Tagihan bruto yang belum ditagihkan/dibayar menurut umur.');
   barChart('chartAgingTB', ['1-2 Bulan','3-6 Bulan','>6 Bulan'], [p.agingTb12,p.agingTb36,p.agingTb6], S[0]);
   wireTableToggle('chartAgingTB', ['1-2 Bulan','3-6 Bulan','>6 Bulan'], [p.agingTb12,p.agingTb36,p.agingTb6]);
