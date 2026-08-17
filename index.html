@@ -399,14 +399,14 @@ table.data-table tr.total-row td{font-weight:800; border-top:2px solid var(--bas
 
 /* Komposisi Biaya Langsung dibuat lebih lebar daripada Hutang Usaha & Pajak (sejajar di satu
    baris) supaya label keterangan pada legend donut (Material/Upah/Alat/Subkont) tidak terpotong. */
-.biaya-hutang-row{display:grid; grid-template-columns:minmax(300px,420px) minmax(220px,1fr); gap:10px; align-items:stretch; margin-bottom:10px;}
+.biaya-hutang-row{display:grid; grid-template-columns:minmax(260px,370px) minmax(220px,1fr); gap:10px; align-items:stretch; margin-bottom:10px;}
 .biaya-hutang-row .stack-col{display:flex; flex-direction:column; min-width:0;}
 .biaya-hutang-row .stack-col > :last-child{flex:1 1 auto; display:flex; flex-direction:column; justify-content:center;}
 /* Kolom kanan (#hutangUsahaCol) menampung Hutang Usaha & Pajak + Kas & Bank vs Hutang & BAD +
    Aging Piutang Usaha + Aging Tagihan Bruto, sejajar di samping Komposisi Biaya Langsung. */
 /* Selalu 1 baris (4 kolom sejajar) selama masih cukup lebar, supaya "Aging Tagihan Bruto" tidak
    turun sendirian ke baris kedua — baru pecah jadi 2 kolom kalau ruangnya benar-benar sempit. */
-.biaya-hutang-row #hutangUsahaCol{grid-template-columns:repeat(4,minmax(0,1fr)); align-content:start;}
+.biaya-hutang-row #hutangUsahaCol{grid-template-columns:minmax(0,0.8fr) repeat(3,minmax(0,1fr)); align-content:start;}
 @media (max-width:1150px){.biaya-hutang-row #hutangUsahaCol{grid-template-columns:repeat(2,minmax(0,1fr));}}
 @media (max-width:720px){.biaya-hutang-row{grid-template-columns:1fr;}}
 @media (max-width:480px){.biaya-hutang-row #hutangUsahaCol{grid-template-columns:minmax(0,1fr);}}
